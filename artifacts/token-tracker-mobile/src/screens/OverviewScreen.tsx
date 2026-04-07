@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ScrollView, View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/constants/colors';
@@ -18,7 +18,8 @@ import { mockSessions } from '@/src/data/mock/sessions';
 import { mockSurfaceTruth, mockContextHealth, mockDailyActivity } from '@/src/data/mock/analytics';
 import { formatTokens, formatCost, formatMs } from '@/src/lib/format';
 import { mockPeriodMetrics } from '@/src/data/mock/metrics';
-import type { HealthState } from '@/src/types';
+import type { HealthState, Session } from '@/src/types';
+import { SessionDetailSheet } from '@/src/components/shared/SessionDetailSheet';
 
 const TIME_FILTERS = [
   { label: 'Last 7d', value: '7d' },
@@ -39,16 +40,24 @@ const SESSION_STATUS_COLORS: Record<string, string> = {
 export function OverviewScreen() {
   const insets = useSafeAreaInsets();
   const [timeFilter, setTimeFilter] = useState('7d');
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
 
-  const totalTokens = mockProviders.reduce((s, p) => s + p.tokens, 0);
-  const totalSpend = mockProviders.reduce((s, p) => s + p.spend, 0);
-  const totalSessions = mockProviders.reduce((s, p) => s + p.sessions, 0);
+  const PERIOD_DAYS: Record<string, number> = { '7d': 7, '14d': 14, '30d': 30, '1d': 1 };
+
+  const currentPeriod = useMemo(() => {
+    const n = PERIOD_DAYS[timeFilter] ?? 7;
+    return mockDailyActivity.slice(-n);
+  }, [timeFilter]);
+
+  const totalTokens = useMemo(() => mockProviders.reduce((s, p) => s + p.tokens, 0), []);
+  const totalSpend = useMemo(() => mockProviders.reduce((s, p) => s + p.spend, 0), []);
+  const totalSessions = useMemo(() => mockProviders.reduce((s, p) => s + p.sessions, 0), []);
   const avgLatency = Math.round(mockProviders.reduce((s, p) => s + p.avgLatency, 0) / mockProviders.length);
   const avgSuccessRate = mockProviders.reduce((s, p) => s + p.successRate, 0) / mockProviders.length;
   const activeProviders = mockProviders.filter(p => p.status === 'healthy' || p.status === 'warning').length;
   const criticalProviders = mockProviders.filter(p => p.status === 'critical').length;
   const overallState: HealthState = criticalProviders > 0 ? 'critical' : mockProviders.some(p => p.status === 'warning') ? 'warning' : 'healthy';
-  const recentTrend = mockDailyActivity.slice(-7).map(d => d.tokens / 1_000_000);
+  const recentTrend = useMemo(() => currentPeriod.map(d => d.tokens / 1_000_000), [currentPeriod]);
 
   const resolved = mockSurfaceTruth.filter(s => s.status === 'resolved').length;
   const unresolved = mockSurfaceTruth.filter(s => s.status === 'unresolved').length;
@@ -123,7 +132,7 @@ export function OverviewScreen() {
 
       {/* Trend Activity */}
       <PanelCard>
-        <SectionHeader title="Trend Activity — Last 7 Days" />
+        <SectionHeader title={`Trend Activity — Last ${timeFilter}`} />
         <TrendSparkline data={recentTrend} width={280} height={64} />
       </PanelCard>
 
@@ -248,7 +257,7 @@ export function OverviewScreen() {
       <PanelCard>
         <SectionHeader title="Recent Sessions" />
         {mockSessions.slice(0, 6).map(s => (
-          <View key={s.id} style={styles.sessionRow}>
+          <TouchableOpacity key={s.id} style={styles.sessionRow} onPress={() => setSelectedSession(s)} activeOpacity={0.7}>
             <View style={[styles.sessionDot, { backgroundColor: SESSION_STATUS_COLORS[s.status] ?? colors.unknownColor }]} />
             <View style={{ flex: 1 }}>
               <Text style={styles.sessionId}>{s.id} · {s.provider}</Text>
@@ -258,9 +267,14 @@ export function OverviewScreen() {
               <Text style={styles.sessionCost}>{formatCost(s.cost)}</Text>
               <Text style={styles.sessionTokens}>{formatTokens(s.tokens)}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
       </PanelCard>
+
+      <SessionDetailSheet
+        session={selectedSession}
+        onClose={() => setSelectedSession(null)}
+      />
     </ScrollView>
   );
 }

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { PageHeader } from '@/components/shared/SectionHeader';
 import { StateChip } from '@/components/shared/StateChip';
 import { StatCard } from '@/components/shared/StatCard';
 import { FilterBar } from '@/components/shared/FilterBar';
+import { SessionDetailSheet, SESSION_STATUS_MAP } from '@/components/shared/SessionDetailSheet';
 import { TrendLine } from '@/components/charts/TrendLine';
 import { IntegrityLane } from '@/components/charts/IntegrityLane';
 import { HeatmapGrid } from '@/components/charts/HeatmapGrid';
@@ -12,16 +13,8 @@ import { SparkLine } from '@/components/charts/SparkLine';
 import { mockProviders } from '@/data/mock/providers';
 import { mockSessions } from '@/data/mock/sessions';
 import { mockDailyActivity, mockHourlyActivity, mockHeatmapDays, mockHeatmapHours } from '@/data/mock/analytics';
-import { Session, SessionStatus, HealthState } from '@/types';
-
-const SESSION_STATUS_MAP: Record<SessionStatus, HealthState> = {
-  success: 'healthy',
-  warning: 'warning',
-  error: 'critical',
-  fallback: 'fallback',
-  degraded: 'degraded',
-  unknown: 'unknown',
-};
+import { useFilters, sliceByTimeframe, filterSessions, filterProviders } from '@/lib/filters';
+import { Session } from '@/types';
 
 function fmt(n: number) {
   if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
@@ -39,7 +32,7 @@ function SessionRow({ session, onSelect }: { session: Session; onSelect: (s: Ses
   const statusColors: Record<string, string> = {
     success: 'var(--tt-accent)',
     warning: 'var(--tt-warning)',
-    error: 'var(--tt-critical)',
+    error: 'var(--tt-error)',
     fallback: 'var(--tt-fallback)',
     degraded: 'var(--tt-degraded)',
     unknown: 'var(--tt-unknown)',
@@ -89,37 +82,107 @@ const thStyle: React.CSSProperties = {
 };
 
 export function OverviewPage() {
-  const [_selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const { filters } = useFilters();
 
-  const totalSpend = mockProviders.reduce((s, p) => s + p.spend, 0);
-  const totalTokens = mockProviders.reduce((s, p) => s + p.tokens, 0);
-  const totalSessions = mockProviders.reduce((s, p) => s + p.sessions, 0);
-  const avgSuccessRate = mockProviders.filter(p => p.successRate > 0).reduce((s, p) => s + p.successRate, 0) / mockProviders.filter(p => p.successRate > 0).length;
-  const avgLatency = mockProviders.filter(p => p.avgLatency > 0).reduce((s, p) => s + p.avgLatency, 0) / mockProviders.filter(p => p.avgLatency > 0).length;
+  const filteredActivity = useMemo(
+    () => sliceByTimeframe(mockDailyActivity, filters.timeframe),
+    [filters.timeframe]
+  );
 
-  const trendData = mockDailyActivity.slice(-14).map(d => ({
-    date: d.date,
-    tokens: d.tokens / 1e6,
-    sessions: d.sessions,
-  }));
+  const filteredProviders = useMemo(
+    () => filterProviders(mockProviders, filters),
+    [filters]
+  );
 
-  const warningSessionsCount = mockSessions.filter(s => s.status !== 'success').length;
+  const filteredSessions = useMemo(
+    () => filterSessions(mockSessions, filters),
+    [filters]
+  );
 
-  const surfaceTruthResolved = mockSessions.filter(s => s.surfaceTruth === 'resolved').length;
-  const surfaceTruthUnresolved = mockSessions.filter(s => s.surfaceTruth === 'unresolved').length;
-  const surfaceTruthUnknown = mockSessions.filter(s => s.surfaceTruth === 'unknown').length;
+  const totalSpend = useMemo(
+    () => filteredProviders.reduce((s, p) => s + p.spend, 0),
+    [filteredProviders]
+  );
 
-  const contextHealthy = mockSessions.filter(s => s.contextHealth === 'healthy').length;
-  const contextDegraded = mockSessions.filter(s => s.contextHealth === 'degraded').length;
-  const contextLow = mockSessions.filter(s => s.contextHealth === 'low').length;
+  const totalTokens = useMemo(
+    () => filteredProviders.reduce((s, p) => s + p.tokens, 0),
+    [filteredProviders]
+  );
 
-  const needsAttention = mockSessions.filter(s => s.status !== 'success').slice(0, 5);
+  const totalSessions = useMemo(
+    () => filteredProviders.reduce((s, p) => s + p.sessions, 0),
+    [filteredProviders]
+  );
+
+  const avgSuccessRate = useMemo(() => {
+    const active = filteredProviders.filter(p => p.successRate > 0);
+    return active.length > 0
+      ? active.reduce((s, p) => s + p.successRate, 0) / active.length
+      : 0;
+  }, [filteredProviders]);
+
+  const avgLatency = useMemo(() => {
+    const active = filteredProviders.filter(p => p.avgLatency > 0);
+    return active.length > 0
+      ? active.reduce((s, p) => s + p.avgLatency, 0) / active.length
+      : 0;
+  }, [filteredProviders]);
+
+  const trendData = useMemo(
+    () => filteredActivity.map(d => ({
+      date: d.date,
+      tokens: d.tokens / 1e6,
+      sessions: d.sessions,
+    })),
+    [filteredActivity]
+  );
+
+  const warningSessionsCount = useMemo(
+    () => filteredSessions.filter(s => s.status !== 'success').length,
+    [filteredSessions]
+  );
+
+  const surfaceTruthResolved = useMemo(
+    () => filteredSessions.filter(s => s.surfaceTruth === 'resolved').length,
+    [filteredSessions]
+  );
+  const surfaceTruthUnresolved = useMemo(
+    () => filteredSessions.filter(s => s.surfaceTruth === 'unresolved').length,
+    [filteredSessions]
+  );
+  const surfaceTruthUnknown = useMemo(
+    () => filteredSessions.filter(s => s.surfaceTruth === 'unknown').length,
+    [filteredSessions]
+  );
+
+  const contextHealthy = useMemo(
+    () => filteredSessions.filter(s => s.contextHealth === 'healthy').length,
+    [filteredSessions]
+  );
+  const contextDegraded = useMemo(
+    () => filteredSessions.filter(s => s.contextHealth === 'degraded').length,
+    [filteredSessions]
+  );
+  const contextLow = useMemo(
+    () => filteredSessions.filter(s => s.contextHealth === 'low').length,
+    [filteredSessions]
+  );
+
+  const needsAttention = useMemo(
+    () => filteredSessions.filter(s => s.status !== 'success').slice(0, 5),
+    [filteredSessions]
+  );
+
+  const recentSessions = useMemo(
+    () => filteredSessions.slice(0, 10),
+    [filteredSessions]
+  );
 
   return (
     <div>
       <FilterBar />
       <div style={{ padding: '24px 28px', maxWidth: 1400 }}>
-        {/* Page Header */}
         <PageHeader
           title="Overview"
           subtitle="System status and operational triage"
@@ -128,16 +191,16 @@ export function OverviewPage() {
 
         {/* Operational Hero Band */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 24 }}>
-          <StatCard label="Total Spend" value={fmtCurrency(totalSpend)} delta={3.2} deltaLabel="7d" size="lg" />
-          <StatCard label="Sessions" value={fmt(totalSessions)} delta={8.4} deltaLabel="7d" size="lg" />
-          <StatCard label="Total Tokens" value={fmt(totalTokens)} delta={5.6} deltaLabel="7d" size="lg" />
-          <StatCard label="Success Rate" value={`${avgSuccessRate.toFixed(1)}%`} delta={-1.2} deltaLabel="7d" size="lg" />
-          <StatCard label="Avg Latency" value={`${Math.round(avgLatency)}ms`} delta={-4.8} deltaLabel="7d" size="lg" />
+          <StatCard label="Total Spend" value={fmtCurrency(totalSpend)} delta={3.2} deltaLabel={filters.timeframe} size="lg" />
+          <StatCard label="Sessions" value={fmt(totalSessions)} delta={8.4} deltaLabel={filters.timeframe} size="lg" />
+          <StatCard label="Total Tokens" value={fmt(totalTokens)} delta={5.6} deltaLabel={filters.timeframe} size="lg" />
+          <StatCard label="Success Rate" value={`${avgSuccessRate.toFixed(1)}%`} delta={-1.2} deltaLabel={filters.timeframe} size="lg" />
+          <StatCard label="Avg Latency" value={`${Math.round(avgLatency)}ms`} delta={-4.8} deltaLabel={filters.timeframe} size="lg" />
         </div>
 
         {/* KPI Deck */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
-          <StatCard label="Active Providers" value="3 / 6" sparkline={<SparkLine data={[3,4,3,4,3,4,3]} color="var(--tt-accent)" />} />
+          <StatCard label="Active Providers" value={`${filteredProviders.length} / 6`} sparkline={<SparkLine data={[3,4,3,4,3,4,3]} color="var(--tt-accent)" />} />
           <StatCard label="Models in Use" value="7" sparkline={<SparkLine data={[7,7,8,7,7,8,7]} color="var(--tt-accent)" />} />
           <StatCard label="Fallback Rate" value="3.2%" delta={1.4} sparkline={<SparkLine data={[2,1,2,3,3,4,3]} color="var(--tt-fallback)" />} />
           <StatCard label="Context Health" value="74%" delta={-2.1} sparkline={<SparkLine data={[80,78,76,75,74,74,74]} color="var(--tt-warning)" />} />
@@ -145,7 +208,7 @@ export function OverviewPage() {
 
         {/* Trend Activity */}
         <div className="tt-panel" style={{ padding: 16, marginBottom: 16 }}>
-          <div className="tt-label" style={{ marginBottom: 12 }}>Trend Activity — Last 14 Days</div>
+          <div className="tt-label" style={{ marginBottom: 12 }}>Trend Activity — {filters.timeframe === '7d' ? 'Last 7 Days' : filters.timeframe === '14d' ? 'Last 14 Days' : filters.timeframe === '30d' ? 'Last 30 Days' : filters.timeframe === '24h' ? 'Last 24 Hours' : `Last ${filters.timeframe}`}</div>
           <TrendLine
             data={trendData}
             series={[
@@ -157,12 +220,12 @@ export function OverviewPage() {
           />
         </div>
 
-        {/* Provider Integrity + Cluster Topology */}
+        {/* Provider Integrity + Activity Cadence */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div className="tt-panel" style={{ padding: 16 }}>
             <div className="tt-label" style={{ marginBottom: 12 }}>Provider Integrity</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {mockProviders.map(p => (
+              {filteredProviders.map(p => (
                 <div key={p.id}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ fontSize: 11, color: 'var(--tt-text-secondary)', fontFamily: "'Manrope', sans-serif" }}>{p.name}</span>
@@ -178,6 +241,9 @@ export function OverviewPage() {
                   />
                 </div>
               ))}
+              {filteredProviders.length === 0 && (
+                <div style={{ color: 'var(--tt-text-muted)', fontSize: 12 }}>No providers match the current filter.</div>
+              )}
             </div>
           </div>
 
@@ -193,7 +259,6 @@ export function OverviewPage() {
 
         {/* Investigation Log + Truth/Context */}
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
-          {/* Investigation Log */}
           <div className="tt-panel" style={{ padding: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <div className="tt-label">Investigation Log</div>
@@ -202,6 +267,9 @@ export function OverviewPage() {
               </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {needsAttention.length === 0 && (
+                <div style={{ color: 'var(--tt-text-muted)', fontSize: 12 }}>All sessions healthy for this period.</div>
+              )}
               {needsAttention.map(s => (
                 <div
                   key={s.id}
@@ -233,7 +301,6 @@ export function OverviewPage() {
             </div>
           </div>
 
-          {/* Active Surface Truth */}
           <div className="tt-panel" style={{ padding: 16 }}>
             <div className="tt-label" style={{ marginBottom: 12 }}>Active Surface Truth</div>
             <CompositionBar
@@ -255,13 +322,14 @@ export function OverviewPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span className="tt-label">Resolution Rate</span>
                 <span style={{ fontFamily: 'JetBrains Mono', fontSize: 13, color: 'var(--tt-accent)' }}>
-                  {((surfaceTruthResolved / (surfaceTruthResolved + surfaceTruthUnresolved + surfaceTruthUnknown)) * 100).toFixed(0)}%
+                  {surfaceTruthResolved + surfaceTruthUnresolved + surfaceTruthUnknown > 0
+                    ? `${((surfaceTruthResolved / (surfaceTruthResolved + surfaceTruthUnresolved + surfaceTruthUnknown)) * 100).toFixed(0)}%`
+                    : '—'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Context Health */}
           <div className="tt-panel" style={{ padding: 16 }}>
             <div className="tt-label" style={{ marginBottom: 12 }}>Context Health</div>
             <IntegrityLane
@@ -277,7 +345,9 @@ export function OverviewPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span className="tt-label">Healthy Rate</span>
                 <span style={{ fontFamily: 'JetBrains Mono', fontSize: 13, color: 'var(--tt-accent)' }}>
-                  {((contextHealthy / (contextHealthy + contextDegraded + contextLow)) * 100).toFixed(0)}%
+                  {contextHealthy + contextDegraded + contextLow > 0
+                    ? `${((contextHealthy / (contextHealthy + contextDegraded + contextLow)) * 100).toFixed(0)}%`
+                    : '—'}
                 </span>
               </div>
             </div>
@@ -296,7 +366,7 @@ export function OverviewPage() {
               </tr>
             </thead>
             <tbody>
-              {mockProviders.map(p => (
+              {filteredProviders.map(p => (
                 <tr key={p.id} style={{ borderBottom: '1px solid var(--tt-border)' }} data-testid={`provider-row-${p.id}`}>
                   <td style={tdStyle}><span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, fontSize: 13 }}>{p.name}</span></td>
                   <td style={tdStyle}><StateChip state={p.status} /></td>
@@ -316,6 +386,9 @@ export function OverviewPage() {
                   </td>
                 </tr>
               ))}
+              {filteredProviders.length === 0 && (
+                <tr><td colSpan={8} style={{ ...tdStyle, textAlign: 'center', color: 'var(--tt-text-muted)' }}>No providers match the current filter.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -332,13 +405,18 @@ export function OverviewPage() {
               </tr>
             </thead>
             <tbody>
-              {mockSessions.slice(0, 10).map(s => (
+              {recentSessions.map(s => (
                 <SessionRow key={s.id} session={s} onSelect={setSelectedSession} />
               ))}
+              {recentSessions.length === 0 && (
+                <tr><td colSpan={8} style={{ ...tdStyle, textAlign: 'center', color: 'var(--tt-text-muted)' }}>No sessions match the current filter.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      <SessionDetailSheet session={selectedSession} onClose={() => setSelectedSession(null)} />
     </div>
   );
 }

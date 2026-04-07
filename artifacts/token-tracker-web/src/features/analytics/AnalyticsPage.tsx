@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { PageHeader } from '@/components/shared/SectionHeader';
 import { StateChip } from '@/components/shared/StateChip';
 import { StatCard } from '@/components/shared/StatCard';
@@ -13,6 +14,8 @@ import { mockProviders } from '@/data/mock/providers';
 import { mockModels } from '@/data/mock/models';
 import { mockSessions } from '@/data/mock/sessions';
 import { mockDailyActivity, mockHourlyActivity, mockHeatmapDays, mockHeatmapHours } from '@/data/mock/analytics';
+import { mockAssetVolatility, mockSuccessFactors, mockSuccessAnalysisSummary } from '@/data/mock/metrics';
+import { useFilters, sliceByTimeframe, filterSessions, filterProviders } from '@/lib/filters';
 
 const panelStyle: React.CSSProperties = {
   background: 'var(--tt-bg-secondary)',
@@ -50,58 +53,116 @@ const tdStyle: React.CSSProperties = {
   borderBottom: '1px solid var(--tt-border)',
 };
 
-export function AnalyticsPage() {
-  const trendData14 = mockDailyActivity.slice(-14).map(d => ({
-    date: d.date,
-    tokens: Math.round(d.tokens / 1e6 * 10) / 10,
-    sessions: d.sessions,
-    cost: Math.round(d.cost * 10) / 10,
-    success: d.successRate,
-  }));
+const RISK_COLORS: Record<string, string> = {
+  low: 'var(--tt-accent)',
+  medium: 'var(--tt-warning)',
+  high: 'var(--tt-fallback)',
+  extreme: 'var(--tt-critical-text)',
+};
 
-  const currentPeriod = mockDailyActivity.slice(-7);
-  const prevPeriod = mockDailyActivity.slice(-14, -7);
+const RISK_STATES: Record<string, 'healthy' | 'warning' | 'degraded' | 'critical'> = {
+  low: 'healthy',
+  medium: 'warning',
+  high: 'degraded',
+  extreme: 'critical',
+};
+
+function fmt(n: number) {
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+  return n.toFixed(0);
+}
+
+export function AnalyticsPage() {
+  const { filters } = useFilters();
+
+  const filteredActivity = useMemo(
+    () => sliceByTimeframe(mockDailyActivity, filters.timeframe),
+    [filters.timeframe]
+  );
+
+  const filteredSessions = useMemo(
+    () => filterSessions(mockSessions, filters),
+    [filters]
+  );
+
+  const filteredProviders = useMemo(
+    () => filterProviders(mockProviders, filters),
+    [filters]
+  );
+
+  const periodDays = filteredActivity.length;
+  const prevStart = Math.max(0, mockDailyActivity.length - periodDays * 2);
+  const prevEnd = Math.max(0, mockDailyActivity.length - periodDays);
+  const prevPeriod = useMemo(
+    () => mockDailyActivity.slice(prevStart, prevEnd),
+    [prevStart, prevEnd]
+  );
+
+  const trendData = useMemo(
+    () => filteredActivity.map(d => ({
+      date: d.date,
+      tokens: Math.round(d.tokens / 1e6 * 10) / 10,
+      sessions: d.sessions,
+      cost: Math.round(d.cost * 10) / 10,
+      success: d.successRate,
+    })),
+    [filteredActivity]
+  );
 
   const sumTokens = (arr: typeof mockDailyActivity) => arr.reduce((s, d) => s + d.tokens, 0);
   const sumSessions = (arr: typeof mockDailyActivity) => arr.reduce((s, d) => s + d.sessions, 0);
   const sumCost = (arr: typeof mockDailyActivity) => arr.reduce((s, d) => s + d.cost, 0);
-  const avgSuccess = (arr: typeof mockDailyActivity) => arr.reduce((s, d) => s + d.successRate, 0) / arr.length;
+  const avgSuccess = (arr: typeof mockDailyActivity) =>
+    arr.length > 0 ? arr.reduce((s, d) => s + d.successRate, 0) / arr.length : 0;
 
-  const currT = sumTokens(currentPeriod);
-  const prevT = sumTokens(prevPeriod);
-  const currS = sumSessions(currentPeriod);
-  const prevS = sumSessions(prevPeriod);
-  const currC = sumCost(currentPeriod);
-  const prevC = sumCost(prevPeriod);
-  const currSR = avgSuccess(currentPeriod);
-  const prevSR = avgSuccess(prevPeriod);
+  const currT = useMemo(() => sumTokens(filteredActivity), [filteredActivity]);
+  const prevT = useMemo(() => sumTokens(prevPeriod), [prevPeriod]);
+  const currS = useMemo(() => sumSessions(filteredActivity), [filteredActivity]);
+  const prevS = useMemo(() => sumSessions(prevPeriod), [prevPeriod]);
+  const currC = useMemo(() => sumCost(filteredActivity), [filteredActivity]);
+  const prevC = useMemo(() => sumCost(prevPeriod), [prevPeriod]);
+  const currSR = useMemo(() => avgSuccess(filteredActivity), [filteredActivity]);
+  const prevSR = useMemo(() => avgSuccess(prevPeriod), [prevPeriod]);
 
-  const deltaT = ((currT - prevT) / prevT) * 100;
-  const deltaS = ((currS - prevS) / prevS) * 100;
-  const deltaC = ((currC - prevC) / prevC) * 100;
+  const deltaT = prevT > 0 ? ((currT - prevT) / prevT) * 100 : 0;
+  const deltaS = prevS > 0 ? ((currS - prevS) / prevS) * 100 : 0;
+  const deltaC = prevC > 0 ? ((currC - prevC) / prevC) * 100 : 0;
   const deltaSR = currSR - prevSR;
 
-  function fmt(n: number) {
-    if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
-    if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-    if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
-    return n.toFixed(0);
-  }
+  const surfaceTruthResolved = useMemo(
+    () => filteredSessions.filter(s => s.surfaceTruth === 'resolved').length,
+    [filteredSessions]
+  );
+  const surfaceTruthUnresolved = useMemo(
+    () => filteredSessions.filter(s => s.surfaceTruth === 'unresolved').length,
+    [filteredSessions]
+  );
+  const surfaceTruthUnknown = useMemo(
+    () => filteredSessions.filter(s => s.surfaceTruth === 'unknown').length,
+    [filteredSessions]
+  );
 
-  const surfaceTruthResolved = mockSessions.filter(s => s.surfaceTruth === 'resolved').length;
-  const surfaceTruthUnresolved = mockSessions.filter(s => s.surfaceTruth === 'unresolved').length;
-  const surfaceTruthUnknown = mockSessions.filter(s => s.surfaceTruth === 'unknown').length;
+  const outcomeComposition = useMemo(() => [
+    { label: 'Success',  value: filteredSessions.filter(s => s.status === 'success').length,  color: 'var(--tt-accent)' },
+    { label: 'Warning',  value: filteredSessions.filter(s => s.status === 'warning').length,  color: 'var(--tt-warning)' },
+    { label: 'Error',    value: filteredSessions.filter(s => s.status === 'error').length,    color: 'var(--tt-error)' },
+    { label: 'Fallback', value: filteredSessions.filter(s => s.status === 'fallback').length, color: 'var(--tt-fallback)' },
+    { label: 'Degraded', value: filteredSessions.filter(s => s.status === 'degraded').length, color: 'var(--tt-degraded)' },
+    { label: 'Unknown',  value: filteredSessions.filter(s => s.status === 'unknown').length,  color: 'var(--tt-unknown)' },
+  ], [filteredSessions]);
 
-  const outcomeComposition = [
-    { label: 'Success', value: mockSessions.filter(s => s.status === 'success').length, color: 'var(--tt-accent)' },
-    { label: 'Warning', value: mockSessions.filter(s => s.status === 'warning').length, color: 'var(--tt-warning)' },
-    { label: 'Error', value: mockSessions.filter(s => s.status === 'error').length, color: 'var(--tt-critical)' },
-    { label: 'Fallback', value: mockSessions.filter(s => s.status === 'fallback').length, color: 'var(--tt-fallback)' },
-    { label: 'Degraded', value: mockSessions.filter(s => s.status === 'degraded').length, color: 'var(--tt-degraded)' },
-    { label: 'Unknown', value: mockSessions.filter(s => s.status === 'unknown').length, color: 'var(--tt-unknown)' },
-  ];
+  const providerHeatmap = useMemo(
+    () => filteredProviders.map(p => filteredActivity.slice(-10).map(d => d.providers[p.name] ?? 0)),
+    [filteredProviders, filteredActivity]
+  );
 
-  const providerHeatmap = mockProviders.map(p => mockDailyActivity.slice(-10).map(d => d.providers[p.name] ?? 0));
+  const periodLabel = filters.timeframe === '7d' ? '7 Days'
+    : filters.timeframe === '14d' ? '14 Days'
+    : filters.timeframe === '30d' ? '30 Days'
+    : filters.timeframe === '24h' ? '24 Hours'
+    : `${filters.timeframe}`;
 
   return (
     <div>
@@ -115,10 +176,10 @@ export function AnalyticsPage() {
 
         {/* Analytics Hero — current vs prior period */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
-          <StatCard label="Tokens (7d)" value={fmt(currT)} delta={deltaT} />
-          <StatCard label="Sessions (7d)" value={fmt(currS)} delta={deltaS} />
-          <StatCard label="Spend (7d)" value={`$${currC.toFixed(0)}`} delta={deltaC} />
-          <StatCard label="Success Rate (7d)" value={`${currSR.toFixed(1)}%`} delta={deltaSR} />
+          <StatCard label={`Tokens (${filters.timeframe})`} value={fmt(currT)} delta={deltaT} />
+          <StatCard label={`Sessions (${filters.timeframe})`} value={fmt(currS)} delta={deltaS} />
+          <StatCard label={`Spend (${filters.timeframe})`} value={`$${currC.toFixed(0)}`} delta={deltaC} />
+          <StatCard label={`Success Rate (${filters.timeframe})`} value={`${currSR.toFixed(1)}%`} delta={deltaSR} />
         </div>
 
         {/* Prior period reference */}
@@ -136,21 +197,21 @@ export function AnalyticsPage() {
           ))}
         </div>
 
-        {/* Trend panels side by side */}
+        {/* Trend panels */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div style={panelStyle}>
-            <div style={labelStyle}>Token Volume — 14 Days</div>
+            <div style={labelStyle}>Token Volume — {periodLabel}</div>
             <TrendLine
-              data={trendData14}
+              data={trendData}
               series={[{ key: 'tokens', label: 'Tokens (M)', color: 'var(--tt-accent)' }]}
               height={160}
               formatValue={v => `${v.toFixed(1)}M`}
             />
           </div>
           <div style={panelStyle}>
-            <div style={labelStyle}>Session Volume — 14 Days</div>
+            <div style={labelStyle}>Session Volume — {periodLabel}</div>
             <TrendLine
-              data={trendData14}
+              data={trendData}
               series={[{ key: 'sessions', label: 'Sessions', color: 'var(--tt-mixed)' }]}
               height={160}
             />
@@ -173,7 +234,7 @@ export function AnalyticsPage() {
           <div style={panelStyle}>
             <div style={labelStyle}>Provider Efficiency — Success Rate</div>
             <RankedBar
-              items={mockProviders.filter(p => p.successRate > 0).map(p => ({
+              items={filteredProviders.filter(p => p.successRate > 0).map(p => ({
                 label: p.name,
                 value: p.successRate,
                 color: p.successRate >= 90 ? 'var(--tt-accent)' : p.successRate >= 70 ? 'var(--tt-warning)' : 'var(--tt-critical)',
@@ -183,7 +244,7 @@ export function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Activity Cadence + Cost Trend */}
+        {/* Activity Cadence + Spend Trend */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div style={panelStyle}>
             <div style={labelStyle}>Activity Cadence — Hour × Day</div>
@@ -194,9 +255,9 @@ export function AnalyticsPage() {
             />
           </div>
           <div style={panelStyle}>
-            <div style={labelStyle}>Spend Trend — 14 Days</div>
+            <div style={labelStyle}>Spend Trend — {periodLabel}</div>
             <TrendLine
-              data={trendData14}
+              data={trendData}
               series={[{ key: 'cost', label: 'Spend ($)', color: 'var(--tt-fallback)' }]}
               height={160}
               formatValue={v => `$${v.toFixed(0)}`}
@@ -223,27 +284,131 @@ export function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Activity Heatmap + Success Analysis */}
+        {/* Asset Volatility */}
+        <div style={{ ...panelStyle, marginBottom: 16 }}>
+          <div style={labelStyle}>Asset Volatility — Model Risk Analysis</div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  {['Model', 'Provider', 'Risk', 'Volatility Score', 'Success Std Dev', 'Latency Std Dev', 'Cost Std Dev'].map(h => (
+                    <th key={h} style={thStyle}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {mockAssetVolatility.map((rec, i) => (
+                  <tr key={i} data-testid={`volatility-row-${i}`}>
+                    <td style={tdStyle}><span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, fontSize: 12 }}>{rec.model}</span></td>
+                    <td style={{ ...tdStyle, color: 'var(--tt-text-muted)', fontSize: 11 }}>{rec.provider}</td>
+                    <td style={tdStyle}>
+                      <StateChip state={RISK_STATES[rec.riskLevel]} label={rec.riskLevel} size="sm" />
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+                        <div style={{ width: 60, height: 6, background: 'var(--tt-bg)', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ width: `${rec.volatilityScore * 100}%`, height: '100%', background: RISK_COLORS[rec.riskLevel], borderRadius: 3 }} />
+                        </div>
+                        <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: RISK_COLORS[rec.riskLevel], flexShrink: 0 }}>
+                          {(rec.volatilityScore * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--tt-text-muted)' }}>±{rec.successRateStdDev.toFixed(1)}%</td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--tt-text-muted)' }}>{rec.latencyStdDev.toLocaleString()}ms</td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--tt-text-muted)' }}>${rec.costStdDev.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Success Analysis */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div style={panelStyle}>
+            <div style={labelStyle}>Success Analysis — Outcome Distribution</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
+              {[
+                { label: 'Success', value: `${mockSuccessAnalysisSummary.overallPct}%`, color: 'var(--tt-accent)' },
+                { label: 'Warning', value: `${mockSuccessAnalysisSummary.warnPct}%`, color: 'var(--tt-warning)' },
+                { label: 'Error', value: `${mockSuccessAnalysisSummary.errorPct}%`, color: 'var(--tt-error)' },
+                { label: 'Fallback', value: `${mockSuccessAnalysisSummary.fallbackPct}%`, color: 'var(--tt-fallback)' },
+                { label: 'Degraded', value: `${mockSuccessAnalysisSummary.degradedPct}%`, color: 'var(--tt-degraded)' },
+                { label: 'Unknown', value: `${mockSuccessAnalysisSummary.unknownPct}%`, color: 'var(--tt-unknown)' },
+              ].map(item => (
+                <div key={item.label} style={{ background: 'var(--tt-bg)', border: '1px solid var(--tt-border)', borderRadius: 5, padding: '8px 10px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'JetBrains Mono', fontSize: 16, color: item.color, fontWeight: 500 }}>{item.value}</div>
+                  <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--tt-text-muted)', marginTop: 2 }}>{item.label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1, background: 'var(--tt-bg)', border: '1px solid var(--tt-border)', borderRadius: 5, padding: '8px 10px' }}>
+                <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--tt-text-muted)', marginBottom: 4 }}>7d Trend</div>
+                <div style={{ fontFamily: 'JetBrains Mono', fontSize: 13, color: 'var(--tt-accent)' }}>{mockSuccessAnalysisSummary.trend7d}</div>
+              </div>
+              <div style={{ flex: 1, background: 'var(--tt-bg)', border: '1px solid var(--tt-border)', borderRadius: 5, padding: '8px 10px' }}>
+                <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--tt-text-muted)', marginBottom: 4 }}>30d Trend</div>
+                <div style={{ fontFamily: 'JetBrains Mono', fontSize: 13, color: 'var(--tt-warning)' }}>{mockSuccessAnalysisSummary.trend30d}</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={panelStyle}>
+            <div style={labelStyle}>Success Factors — Impact Analysis</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {mockSuccessFactors.map((factor, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    backgroundColor: factor.direction === 'positive' ? 'var(--tt-accent)' : factor.direction === 'negative' ? 'var(--tt-error)' : 'var(--tt-text-muted)',
+                    flexShrink: 0,
+                  }} />
+                  <span style={{ fontSize: 11, color: 'var(--tt-text-secondary)', fontFamily: "'Manrope', sans-serif", flex: 1, minWidth: 0 }}>{factor.factor}</span>
+                  <div style={{ width: 80, height: 4, background: 'var(--tt-bg)', borderRadius: 2, overflow: 'hidden', flexShrink: 0 }}>
+                    <div style={{
+                      width: `${factor.impact * 100}%`,
+                      height: '100%',
+                      background: factor.direction === 'positive' ? 'var(--tt-accent)' : factor.direction === 'negative' ? 'var(--tt-error)' : 'var(--tt-text-muted)',
+                      borderRadius: 2,
+                    }} />
+                  </div>
+                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'var(--tt-text-muted)', flexShrink: 0, width: 32, textAlign: 'right' }}>
+                    {factor.frequency}×
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Activity Heatmap + Success Analysis by Provider */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div style={panelStyle}>
             <div style={labelStyle}>Activity Heatmap — Date × Provider</div>
             <HeatmapGrid
               data={providerHeatmap}
-              rowLabels={mockProviders.map(p => p.name.slice(0, 8))}
-              colLabels={mockDailyActivity.slice(-10).map(d => d.date.slice(5))}
+              rowLabels={filteredProviders.map(p => p.name.slice(0, 8))}
+              colLabels={filteredActivity.slice(-10).map(d => d.date.slice(5))}
               color="var(--tt-accent)"
             />
           </div>
           <div style={panelStyle}>
             <div style={labelStyle}>Success Analysis — By Provider</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {mockProviders.filter(p => p.successRate > 0).map(p => (
+              {filteredProviders.filter(p => p.successRate > 0).map(p => (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ width: 80, fontSize: 11, color: 'var(--tt-text-secondary)', fontFamily: "'Manrope', sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>{p.name}</span>
                   <SparkLine data={p.trend} color={p.status === 'healthy' ? 'var(--tt-accent)' : p.status === 'critical' ? 'var(--tt-critical)' : 'var(--tt-warning)'} height={24} />
                   <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--tt-text-primary)', marginLeft: 'auto', flexShrink: 0 }}>{p.successRate.toFixed(1)}%</span>
                 </div>
               ))}
+              {filteredProviders.length === 0 && (
+                <div style={{ color: 'var(--tt-text-muted)', fontSize: 12 }}>No providers match the current filter.</div>
+              )}
             </div>
           </div>
         </div>
@@ -253,7 +418,7 @@ export function AnalyticsPage() {
           <div style={panelStyle}>
             <div style={labelStyle}>Context Pressure — Provider Breakdown</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {mockProviders.filter(p => p.sessions > 0).map(p => (
+              {filteredProviders.filter(p => p.sessions > 0).map(p => (
                 <div key={p.id}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ fontSize: 11, color: 'var(--tt-text-secondary)' }}>{p.name}</span>
@@ -269,6 +434,9 @@ export function AnalyticsPage() {
                   />
                 </div>
               ))}
+              {filteredProviders.length === 0 && (
+                <div style={{ color: 'var(--tt-text-muted)', fontSize: 12 }}>No providers match the current filter.</div>
+              )}
             </div>
           </div>
           <div style={panelStyle}>
@@ -299,9 +467,9 @@ export function AnalyticsPage() {
 
         {/* Success Rate Trend */}
         <div style={{ ...panelStyle, marginBottom: 16 }}>
-          <div style={labelStyle}>Success Rate Trend — 14 Days</div>
+          <div style={labelStyle}>Success Rate Trend — {periodLabel}</div>
           <TrendLine
-            data={trendData14}
+            data={trendData}
             series={[{ key: 'success', label: 'Success Rate %', color: 'var(--tt-accent)' }]}
             height={120}
             formatValue={v => `${v.toFixed(1)}%`}
@@ -345,16 +513,17 @@ export function AnalyticsPage() {
 
         {/* Provider × Model Token Matrix */}
         {(() => {
-          const topProviders = mockProviders.slice(0, 4).map(p => p.name);
+          const topProviders = filteredProviders.slice(0, 4).map(p => p.name);
           const topModels = mockModels.slice(0, 6).map(m => m.name.split(' ').slice(-2).join(' '));
           const matrix = topProviders.map(pName => {
-            const provider = mockProviders.find(p => p.name === pName);
+            const provider = filteredProviders.find(p => p.name === pName);
             return topModels.map((_, mi) => {
               const model = mockModels[mi];
               const isMatch = provider?.models.includes(model.name) ?? false;
               return { value: isMatch ? Math.round(model.tokens / 1e3) : 0 };
             });
           });
+          if (topProviders.length === 0) return null;
           return (
             <div style={{ ...panelStyle, marginBottom: 16 }}>
               <div style={labelStyle}>Provider × Model — Token Distribution (K)</div>
@@ -370,7 +539,7 @@ export function AnalyticsPage() {
 
         {/* Daily Activity Table */}
         <div style={{ ...panelStyle, overflowX: 'auto' }}>
-          <div style={labelStyle}>Daily Activity — Last 14 Days</div>
+          <div style={labelStyle}>Daily Activity — {periodLabel}</div>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
@@ -380,7 +549,7 @@ export function AnalyticsPage() {
               </tr>
             </thead>
             <tbody>
-              {mockDailyActivity.slice(-14).reverse().map(d => (
+              {filteredActivity.slice().reverse().map(d => (
                 <tr key={d.date} data-testid={`daily-row-${d.date}`}>
                   <td style={{ ...tdStyle, fontFamily: 'JetBrains Mono', fontSize: 11 }}>{d.date}</td>
                   <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'JetBrains Mono', fontSize: 11 }}>{(d.tokens / 1e6).toFixed(1)}M</td>

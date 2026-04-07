@@ -9,10 +9,10 @@ const STATE_CONFIG: Record<HealthState, { label: string; color: string; bg: stri
   degraded:     { label: 'Degraded',     color: 'var(--tt-degraded)',     bg: 'var(--tt-degraded-bg)',  dot: 'var(--tt-degraded)' },
   unknown:      { label: 'Unknown',      color: 'var(--tt-unknown)',      bg: 'var(--tt-unknown-bg)',   dot: 'var(--tt-unknown)' },
   unresolved:   { label: 'Unresolved',   color: 'var(--tt-unresolved)',   bg: 'var(--tt-unresolved-bg)',dot: 'var(--tt-unresolved)' },
-  loading:      { label: 'Loading',      color: 'var(--tt-text-muted)',   bg: 'rgba(255,255,255,0.05)', dot: 'var(--tt-text-muted)' },
-  error:        { label: 'Error',        color: 'var(--tt-critical-text)',bg: 'var(--tt-critical-bg)', dot: 'var(--tt-critical)' },
-  empty:        { label: 'Empty',        color: 'var(--tt-text-muted)',   bg: 'rgba(255,255,255,0.04)', dot: 'var(--tt-text-muted)' },
-  disconnected: { label: 'Disconnected', color: 'var(--tt-text-muted)',   bg: 'rgba(255,255,255,0.04)', dot: 'var(--tt-text-muted)' },
+  loading:      { label: 'Loading',      color: 'var(--tt-loading)',       bg: 'var(--tt-loading-bg)',      dot: 'var(--tt-loading)' },
+  error:        { label: 'Error',        color: 'var(--tt-error)',          bg: 'var(--tt-error-bg)',         dot: 'var(--tt-error)' },
+  empty:        { label: 'Empty',        color: 'var(--tt-empty)',          bg: 'var(--tt-empty-bg)',         dot: 'var(--tt-empty)' },
+  disconnected: { label: 'Disconnected', color: 'var(--tt-disconnected)',   bg: 'var(--tt-disconnected-bg)', dot: 'var(--tt-disconnected)' },
 };
 
 interface StateChipProps {

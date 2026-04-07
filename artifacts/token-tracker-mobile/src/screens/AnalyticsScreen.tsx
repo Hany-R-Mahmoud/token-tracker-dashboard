@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ScrollView, View, Text, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/constants/colors';
@@ -62,27 +62,35 @@ export function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
   const [timeFilter, setTimeFilter] = useState('7d');
 
-  const last7  = mockDailyActivity.slice(-7);
-  const last14 = mockDailyActivity.slice(-14);
-  const prev7  = mockDailyActivity.slice(-14, -7);
+  const PERIOD_DAYS: Record<string, number> = { '7d': 7, '14d': 14, '30d': 30 };
 
-  const curr7Tokens   = last7.reduce((s, d) => s + d.tokens, 0);
-  const prev7Tokens   = prev7.reduce((s, d) => s + d.tokens, 0);
-  const curr7Sessions = last7.reduce((s, d) => s + d.sessions, 0);
-  const curr7Spend    = last7.reduce((s, d) => s + d.cost, 0);
-  const curr7Success  = last7.reduce((s, d) => s + d.successRate, 0) / last7.length;
-  const prev7Success  = prev7.reduce((s, d) => s + d.successRate, 0) / prev7.length;
+  const currentPeriod = useMemo(() => {
+    const n = PERIOD_DAYS[timeFilter] ?? 7;
+    return mockDailyActivity.slice(-n);
+  }, [timeFilter]);
 
-  const tokenDeltaNum   = ((curr7Tokens - prev7Tokens) / prev7Tokens) * 100;
+  const prevPeriod = useMemo(() => {
+    const n = PERIOD_DAYS[timeFilter] ?? 7;
+    return mockDailyActivity.slice(-n * 2, -n);
+  }, [timeFilter]);
+
+  const curr7Tokens   = useMemo(() => currentPeriod.reduce((s, d) => s + d.tokens, 0), [currentPeriod]);
+  const prev7Tokens   = useMemo(() => prevPeriod.reduce((s, d) => s + d.tokens, 0), [prevPeriod]);
+  const curr7Sessions = useMemo(() => currentPeriod.reduce((s, d) => s + d.sessions, 0), [currentPeriod]);
+  const curr7Spend    = useMemo(() => currentPeriod.reduce((s, d) => s + d.cost, 0), [currentPeriod]);
+  const curr7Success  = useMemo(() => currentPeriod.length > 0 ? currentPeriod.reduce((s, d) => s + d.successRate, 0) / currentPeriod.length : 0, [currentPeriod]);
+  const prev7Success  = useMemo(() => prevPeriod.length > 0 ? prevPeriod.reduce((s, d) => s + d.successRate, 0) / prevPeriod.length : 0, [prevPeriod]);
+
+  const tokenDeltaNum   = prev7Tokens > 0 ? ((curr7Tokens - prev7Tokens) / prev7Tokens) * 100 : 0;
   const successDeltaNum = curr7Success - prev7Success;
 
-  const tokenTrend   = last7.map(d => d.tokens / 1_000_000);
-  const sessionTrend = last7.map(d => d.sessions);
-  const successTrend = last7.map(d => d.successRate);
+  const tokenTrend   = useMemo(() => currentPeriod.map(d => d.tokens / 1_000_000), [currentPeriod]);
+  const sessionTrend = useMemo(() => currentPeriod.map(d => d.sessions), [currentPeriod]);
+  const successTrend = useMemo(() => currentPeriod.map(d => d.successRate), [currentPeriod]);
 
-  const chartLabels14  = last14.map(d => d.date.slice(5));
-  const chartTokens14  = last14.map(d => Math.round(d.tokens / 1_000_000 * 10) / 10);
-  const chartSessions14 = last14.map(d => d.sessions);
+  const chartLabels14   = useMemo(() => currentPeriod.map(d => d.date.slice(5)), [currentPeriod]);
+  const chartTokens14   = useMemo(() => currentPeriod.map(d => Math.round(d.tokens / 1_000_000 * 10) / 10), [currentPeriod]);
+  const chartSessions14 = useMemo(() => currentPeriod.map(d => d.sessions), [currentPeriod]);
 
   const successCount  = mockSessions.filter(s => s.status === 'success').length;
   const warningCount  = mockSessions.filter(s => s.status === 'warning').length;
@@ -117,33 +125,33 @@ export function AnalyticsScreen() {
       <View style={styles.heroGrid}>
         <StateCard
           state={tokenDeltaNum >= 0 ? 'healthy' : 'warning'}
-          title="Tokens (7d)"
+          title={`Tokens (${timeFilter})`}
           value={formatTokens(curr7Tokens)}
-          subValue={`${tokenDeltaNum >= 0 ? '+' : ''}${tokenDeltaNum.toFixed(1)}% vs prior 7d`}
+          subValue={`${tokenDeltaNum >= 0 ? '+' : ''}${tokenDeltaNum.toFixed(1)}% vs prior ${timeFilter}`}
         />
         <StateCard
           state="healthy"
-          title="Sessions (7d)"
+          title={`Sessions (${timeFilter})`}
           value={curr7Sessions.toLocaleString()}
-          subValue={`avg ${Math.round(curr7Sessions / 7).toLocaleString()} / day`}
+          subValue={`avg ${currentPeriod.length > 0 ? Math.round(curr7Sessions / currentPeriod.length).toLocaleString() : 0} / day`}
         />
         <StateCard
           state={curr7Spend > 1500 ? 'warning' : 'healthy'}
-          title="Spend (7d)"
+          title={`Spend (${timeFilter})`}
           value={formatCost(curr7Spend)}
           subValue={`${formatCost(curr7Spend / curr7Sessions)} / session`}
         />
         <StateCard
           state={curr7Success >= 90 ? 'healthy' : curr7Success >= 80 ? 'mixed' : 'warning'}
-          title="Success (7d)"
+          title={`Success (${timeFilter})`}
           value={`${curr7Success.toFixed(1)}%`}
-          subValue={`${successDeltaNum >= 0 ? '+' : ''}${successDeltaNum.toFixed(1)}% vs prior 7d`}
+          subValue={`${successDeltaNum >= 0 ? '+' : ''}${successDeltaNum.toFixed(1)}% vs prior ${timeFilter}`}
         />
       </View>
 
       {/* Trend Panels — chart-kit for 14-day */}
       <PanelCard>
-        <SectionHeader title="Token Volume — 14 Days (M tokens)" />
+        <SectionHeader title={`Token Volume — ${timeFilter} (M tokens)`} />
         <ActivityLineChart
           labels={chartLabels14.filter((_, i) => i % 2 === 0)}
           data={chartTokens14.filter((_, i) => i % 2 === 0)}
@@ -154,7 +162,7 @@ export function AnalyticsScreen() {
       </PanelCard>
 
       <PanelCard>
-        <SectionHeader title="Session Volume — 14 Days" />
+        <SectionHeader title={`Session Volume — ${timeFilter}`} />
         <ActivityLineChart
           labels={chartLabels14.filter((_, i) => i % 2 === 0)}
           data={chartSessions14.filter((_, i) => i % 2 === 0)}
@@ -164,7 +172,7 @@ export function AnalyticsScreen() {
       </PanelCard>
 
       <PanelCard>
-        <SectionHeader title="Success Rate — 7 Days" />
+        <SectionHeader title={`Success Rate — ${timeFilter}`} />
         <TrendSparkline data={successTrend} width={280} height={56} color={colors.accentColor} />
         <View style={styles.trendFooter}>
           <Text style={styles.trendFooterText}>Avg: {curr7Success.toFixed(1)}%</Text>
@@ -424,8 +432,8 @@ export function AnalyticsScreen() {
 
       {/* Daily Activity Table */}
       <PanelCard>
-        <SectionHeader title="Daily Activity — Last 14 Days" />
-        {mockDailyActivity.slice(-14).reverse().map(d => (
+        <SectionHeader title={`Daily Activity — Last ${timeFilter}`} />
+        {currentPeriod.slice().reverse().map(d => (
           <View key={d.date} style={styles.dailyRow}>
             <Text style={styles.dailyDate}>{d.date.slice(5)}</Text>
             <Text style={styles.dailyStat}>{formatTokens(d.tokens)}</Text>

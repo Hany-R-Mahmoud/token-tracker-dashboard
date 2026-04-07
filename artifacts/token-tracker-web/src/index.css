@@ -180,11 +180,13 @@
   --tt-accent-soft: rgba(163, 255, 217, 0.12);
   --tt-success: #36ffc4;
   --tt-success-bg: rgba(54, 255, 196, 0.12);
-  --tt-warning: #b9c8de;
-  --tt-warning-bg: rgba(185, 200, 222, 0.12);
+  --tt-warning: #d4a44a;
+  --tt-warning-bg: rgba(212, 164, 74, 0.12);
   --tt-critical: #b01522;
   --tt-critical-bg: rgba(176, 21, 34, 0.16);
   --tt-critical-text: #ffc1bd;
+  --tt-error: #e05460;
+  --tt-error-bg: rgba(224, 84, 96, 0.12);
   --tt-fallback: #b9a27a;
   --tt-fallback-bg: rgba(185, 162, 122, 0.12);
   --tt-degraded: #8a9bbf;
@@ -195,6 +197,12 @@
   --tt-unresolved-bg: rgba(196, 168, 74, 0.12);
   --tt-mixed: #9b8ec4;
   --tt-mixed-bg: rgba(155, 142, 196, 0.12);
+  --tt-loading: #849396;
+  --tt-loading-bg: rgba(132, 147, 150, 0.08);
+  --tt-empty: #556168;
+  --tt-empty-bg: rgba(85, 97, 104, 0.08);
+  --tt-disconnected: #6b7280;
+  --tt-disconnected-bg: rgba(107, 114, 128, 0.08);
 }
 
 @layer base {

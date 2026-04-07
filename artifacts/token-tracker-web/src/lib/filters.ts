@@ -1,5 +1,5 @@
 import { useLocation } from 'wouter';
-import { FilterState } from '@/types';
+import { FilterState, DailyActivity, Session } from '@/types';
 
 export function getDefaultFilters(): FilterState {
   return {
@@ -58,4 +58,31 @@ export function useFilters(): {
   };
 
   return { filters, setFilters, copyShareableUrl };
+}
+
+const TIMEFRAME_DAYS: Record<string, number> = {
+  '24h': 1,
+  '7d': 7,
+  '14d': 14,
+  '30d': 30,
+  '90d': 90,
+};
+
+export function sliceByTimeframe(data: DailyActivity[], timeframe: string): DailyActivity[] {
+  const n = TIMEFRAME_DAYS[timeframe] ?? 7;
+  return data.slice(-n);
+}
+
+export function filterSessions(sessions: Session[], filters: FilterState): Session[] {
+  return sessions.filter(s => {
+    if (filters.providers.length > 0 && !filters.providers.includes(s.provider)) return false;
+    if (filters.models.length > 0 && !filters.models.includes(s.model)) return false;
+    if (filters.status && s.status !== filters.status) return false;
+    return true;
+  });
+}
+
+export function filterProviders<T extends { name: string }>(providers: T[], filters: FilterState): T[] {
+  if (filters.providers.length === 0) return providers;
+  return providers.filter(p => filters.providers.includes(p.name));
 }

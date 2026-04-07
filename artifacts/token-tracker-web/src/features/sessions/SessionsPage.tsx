@@ -12,18 +12,9 @@ import { PageHeader } from '@/components/shared/SectionHeader';
 import { StateChip } from '@/components/shared/StateChip';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { CompositionBar } from '@/components/charts/CompositionBar';
+import { SessionDetailSheet, SESSION_STATUS_MAP, CONTEXT_COLORS, TRUTH_COLORS } from '@/components/shared/SessionDetailSheet';
 import { mockSessions } from '@/data/mock/sessions';
-import { Session, SessionStatus, HealthState } from '@/types';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-
-const SESSION_STATUS_MAP: Record<SessionStatus, HealthState> = {
-  success: 'healthy',
-  warning: 'warning',
-  error: 'critical',
-  fallback: 'fallback',
-  degraded: 'degraded',
-  unknown: 'unknown',
-};
+import { Session } from '@/types';
 
 const thStyle: React.CSSProperties = {
   padding: '6px 10px',
@@ -48,122 +39,6 @@ const tdStyle: React.CSSProperties = {
   verticalAlign: 'middle',
 };
 
-const CONTEXT_COLORS = {
-  healthy: 'var(--tt-accent)',
-  degraded: 'var(--tt-warning)',
-  low: 'var(--tt-critical-text)',
-};
-
-const TRUTH_COLORS = {
-  resolved: 'var(--tt-accent)',
-  unresolved: 'var(--tt-unresolved)',
-  unknown: 'var(--tt-unknown)',
-};
-
-function SessionDetailSheet({ session, onClose }: { session: Session | null; onClose: () => void }) {
-  if (!session) return null;
-
-  return (
-    <Sheet open={!!session} onOpenChange={onClose}>
-      <SheetContent style={{ background: 'var(--tt-bg-secondary)', borderLeft: '1px solid var(--tt-border)', color: 'var(--tt-text-primary)', width: 420, maxWidth: '95vw', overflowY: 'auto' }}>
-        <SheetHeader>
-          <SheetTitle style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--tt-text-primary)', fontSize: 15 }}>
-            Session {session.id}
-          </SheetTitle>
-        </SheetHeader>
-
-        <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Status Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <StateChip state={SESSION_STATUS_MAP[session.status] ?? 'unknown'} label={session.status} size="md" />
-            <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--tt-text-muted)' }}>
-              {new Date(session.timestamp).toLocaleString()}
-            </span>
-          </div>
-
-          {/* Core Metrics */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {[
-              { label: 'Provider', value: session.provider },
-              { label: 'Model', value: session.model },
-              { label: 'Tokens', value: session.tokens.toLocaleString() },
-              { label: 'Cost', value: `$${session.cost.toFixed(4)}` },
-              { label: 'Duration', value: `${(session.duration / 1000).toFixed(1)}s` },
-              { label: 'Success Score', value: `${(session.successScore * 100).toFixed(0)}%` },
-            ].map(item => (
-              <div key={item.label} style={{ background: 'var(--tt-bg)', border: '1px solid var(--tt-border)', borderRadius: 5, padding: '8px 10px' }}>
-                <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--tt-text-muted)', marginBottom: 2, fontFamily: "'Manrope', sans-serif" }}>{item.label}</div>
-                <div style={{ fontFamily: 'JetBrains Mono', fontSize: 13, color: 'var(--tt-text-primary)' }}>{item.value}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Truth Band */}
-          <div>
-            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--tt-text-muted)', marginBottom: 8, fontFamily: "'Manrope', sans-serif" }}>
-              Cognitive Resolution Status
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div style={{ background: 'var(--tt-bg)', border: '1px solid var(--tt-border)', borderRadius: 5, padding: '8px 10px' }}>
-                <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--tt-text-muted)', marginBottom: 2 }}>Context Health</div>
-                <div style={{ fontFamily: 'JetBrains Mono', fontSize: 12, color: CONTEXT_COLORS[session.contextHealth] }}>{session.contextHealth}</div>
-              </div>
-              <div style={{ background: 'var(--tt-bg)', border: '1px solid var(--tt-border)', borderRadius: 5, padding: '8px 10px' }}>
-                <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--tt-text-muted)', marginBottom: 2 }}>Surface Truth</div>
-                <div style={{ fontFamily: 'JetBrains Mono', fontSize: 12, color: TRUTH_COLORS[session.surfaceTruth] }}>{session.surfaceTruth}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Explanation Factors */}
-          <div>
-            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--tt-text-muted)', marginBottom: 8, fontFamily: "'Manrope', sans-serif" }}>
-              Explanation Factors
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {session.explanationFactors.map((factor, i) => (
-                <div key={i} style={{
-                  padding: '6px 10px',
-                  background: 'var(--tt-bg)',
-                  border: '1px solid var(--tt-border)',
-                  borderRadius: 4,
-                  fontSize: 11,
-                  color: 'var(--tt-text-secondary)',
-                  fontFamily: "'Manrope', sans-serif",
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}>
-                  <span style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--tt-accent)', display: 'inline-block', flexShrink: 0 }} />
-                  {factor}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Evidence Notes */}
-          <div>
-            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--tt-text-muted)', marginBottom: 8, fontFamily: "'Manrope', sans-serif" }}>
-              Evidence Notes
-            </div>
-            <div style={{
-              padding: '10px 12px',
-              background: 'var(--tt-bg)',
-              border: '1px solid var(--tt-border)',
-              borderRadius: 5,
-              fontSize: 12,
-              color: 'var(--tt-text-secondary)',
-              fontFamily: "'Manrope', sans-serif",
-              lineHeight: 1.6,
-            }}>
-              {session.evidenceNotes}
-            </div>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
 
 const columnHelper = createColumnHelper<Session>();
 
