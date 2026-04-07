@@ -56,3 +56,31 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 #### Data
 - 6 providers, 8 models, 20 sessions, 12 team members, 30-day daily activity
 - 9 semantic health states: healthy, mixed, warning, critical, fallback, degraded, unknown, unresolved, disconnected
+
+---
+
+### Token Tracker Mobile (`artifacts/token-tracker-mobile`)
+
+- **Kind**: Expo (React Native) mobile app
+- **Port**: 20501
+- **Preview path**: `/mobile/`
+- **Stack**: Expo Router, React Native, react-native-svg, expo-blur, Inter fonts, @tanstack/react-query
+- **Design**: Always dark — same Token Tracker identity as web (#0b1326 bg, #a3ffd9 mint accent), Inter 400/500/600/700
+
+#### Screens (3 tabs)
+1. **Overview** (`/`) — Brand lockup header, system status hero band, KPI stats, trend sparkline, provider integrity lanes, cluster topology grid, investigation log, surface truth composition, context health bars, provider summary list, recent sessions
+2. **Analytics** (`/analytics`) — Period stats hero grid, 7-day token/session/success trend sparklines, value density ranking, provider efficiency, activity heatmap, outcome composition, model pressure, daily activity table
+3. **Team** (`/team`) — Leaderboard header, summary band, top-3 podium, full member list with rank/status/tokens/success; taps open member detail sheet with stats, trend sparkline, session details
+
+#### Architecture
+- `src/screens/` — OverviewScreen, AnalyticsScreen, TeamScreen
+- `src/components/shared/` — BrandLockup, BrandMark, HealthDot, StateChip, StatCard, SectionHeader, PageHeader, FilterPills, PanelCard
+- `src/components/charts/` — MiniBar, TrendSparkline (react-native-svg), IntegrityLane, CompositionBar, RankedListBar
+- `src/data/mock/` — providers.ts, sessions.ts, team.ts, analytics.ts
+- `src/types/index.ts` — All TypeScript types
+- `src/theme/index.ts` — Palette, semantic health state colors, typography, spacing, radii
+- `src/lib/format.ts` — Token/cost/time/date formatters
+
+#### Data
+- 6 providers, 10 sessions, 12 team members, 30-day daily activity
+- 12 semantic health states in semanticColors: healthy, mixed, warning, critical, fallback, degraded, unknown, unresolved, loading, error, empty, disconnected
