@@ -3,6 +3,7 @@ import { ScrollView, View, Text, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/constants/colors';
 import { StateChip } from '@/src/components/shared/StateChip';
+import { StateCard } from '@/src/components/shared/StateCard';
 import { SectionHeader, PageHeader } from '@/src/components/shared/SectionHeader';
 import { FilterPills } from '@/src/components/shared/FilterPills';
 import { PanelCard } from '@/src/components/shared/PanelCard';
@@ -13,31 +14,27 @@ import { RankedListBar } from '@/src/components/charts/RankedListBar';
 import { MiniBar } from '@/src/components/charts/MiniBar';
 import { mockProviders } from '@/src/data/mock/providers';
 import { mockSessions } from '@/src/data/mock/sessions';
-import { mockDailyActivity, mockContextHealth, mockSurfaceTruth, mockHeatmapData, mockHeatmapHours, mockHeatmapDays } from '@/src/data/mock/analytics';
+import {
+  mockDailyActivity,
+  mockContextHealth,
+  mockSurfaceTruth,
+  mockHeatmapData,
+  mockHeatmapHours,
+  mockHeatmapDays,
+} from '@/src/data/mock/analytics';
+import {
+  mockModelVolume,
+  mockModelCostPerKTokens,
+  mockModelBreakdown,
+  mockOutcomeDistribution,
+  mockProviderDistribution,
+} from '@/src/data/mock/models';
 import { formatTokens, formatCost } from '@/src/lib/format';
 
 const TIME_FILTERS = [
   { label: '7d', value: '7d' },
   { label: '14d', value: '14d' },
   { label: '30d', value: '30d' },
-];
-
-const MODEL_ITEMS = [
-  { label: 'GPT-4o', value: 12400000, valueLabel: '12.4M', color: colors.accentColor },
-  { label: 'Claude 3.5', value: 9200000, valueLabel: '9.2M', color: '#7ec8e3' },
-  { label: 'GPT-4 Turbo', value: 8100000, valueLabel: '8.1M', color: '#a0c4ff' },
-  { label: 'Gemini 1.5 Pro', value: 6800000, valueLabel: '6.8M', color: colors.warningText },
-  { label: 'GPT-4o Mini', value: 5200000, valueLabel: '5.2M', color: '#c3f584' },
-  { label: 'Command R+', value: 3400000, valueLabel: '3.4M', color: colors.fallbackColor },
-];
-
-const VALUE_DENSITY_ITEMS = [
-  { label: 'GPT-4 Azure', value: 64, valueLabel: '$64/K', color: colors.criticalText },
-  { label: 'Claude 3.5 Sonnet', value: 42, valueLabel: '$42/K', color: colors.warningText },
-  { label: 'GPT-4o', value: 38, valueLabel: '$38/K', color: colors.accentColor },
-  { label: 'Gemini 1.5 Pro', value: 28, valueLabel: '$28/K', color: '#7ec8e3' },
-  { label: 'Command R+', value: 22, valueLabel: '$22/K', color: colors.fallbackColor },
-  { label: 'Claude 3 Haiku', value: 12, valueLabel: '$12/K', color: colors.degradedColor },
 ];
 
 export function AnalyticsScreen() {
@@ -88,30 +85,32 @@ export function AnalyticsScreen() {
         <FilterPills pills={TIME_FILTERS} active={timeFilter} onSelect={setTimeFilter} />
       </View>
 
-      {/* Analytics Hero */}
+      {/* Analytics Hero — State Cards */}
       <View style={styles.heroGrid}>
-        <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>TOKENS (7D)</Text>
-          <Text style={styles.heroValue}>{formatTokens(curr7Tokens)}</Text>
-          <Text style={[styles.heroDelta, { color: parseFloat(tokenDelta) > 0 ? colors.accentColor : colors.criticalText }]}>
-            +{tokenDelta}%
-          </Text>
-        </View>
-        <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>SESSIONS (7D)</Text>
-          <Text style={styles.heroValue}>{curr7Sessions.toLocaleString()}</Text>
-          <Text style={[styles.heroDelta, { color: colors.accentColor }]}>+9.3%</Text>
-        </View>
-        <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>SPEND (7D)</Text>
-          <Text style={styles.heroValue}>{formatCost(curr7Spend)}</Text>
-          <Text style={[styles.heroDelta, { color: colors.criticalText }]}>+9.6%</Text>
-        </View>
-        <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>SUCCESS (7D)</Text>
-          <Text style={[styles.heroValue, { color: colors.accentColor }]}>{curr7Success.toFixed(1)}%</Text>
-          <Text style={[styles.heroDelta, { color: colors.accentColor }]}>+0.2%</Text>
-        </View>
+        <StateCard
+          state="healthy"
+          title="Tokens (7d)"
+          value={formatTokens(curr7Tokens)}
+          subValue={`+${tokenDelta}% vs prior 7d`}
+        />
+        <StateCard
+          state="healthy"
+          title="Sessions (7d)"
+          value={curr7Sessions.toLocaleString()}
+          subValue="+9.3% vs prior 7d"
+        />
+        <StateCard
+          state="warning"
+          title="Spend (7d)"
+          value={formatCost(curr7Spend)}
+          subValue="+9.6% vs prior 7d"
+        />
+        <StateCard
+          state="mixed"
+          title="Success (7d)"
+          value={`${curr7Success.toFixed(1)}%`}
+          subValue="+0.2% vs prior 7d"
+        />
       </View>
 
       {/* Trend Panels */}
@@ -136,10 +135,79 @@ export function AnalyticsScreen() {
         </View>
       </PanelCard>
 
+      {/* Outcome Distribution */}
+      <PanelCard>
+        <SectionHeader title="Outcome Distribution" />
+        <CompositionBar
+          segments={mockOutcomeDistribution.map(d => ({ label: d.label, value: d.value, color: d.color }))}
+          height={10}
+          showLegend
+        />
+        <View style={styles.distGrid}>
+          {mockOutcomeDistribution.map(d => (
+            <View key={d.label} style={styles.distCell}>
+              <Text style={[styles.distValue, { color: d.color }]}>{d.pct}%</Text>
+              <Text style={styles.distLabel}>{d.label}</Text>
+            </View>
+          ))}
+        </View>
+      </PanelCard>
+
+      {/* Provider Distribution */}
+      <PanelCard>
+        <SectionHeader title="Provider Distribution" />
+        <CompositionBar
+          segments={mockProviderDistribution.map(d => ({ label: d.label, value: d.value, color: d.color }))}
+          height={10}
+          showLegend
+        />
+        <View style={styles.distGrid}>
+          {mockProviderDistribution.map(d => (
+            <View key={d.label} style={styles.distCell}>
+              <Text style={[styles.distValue, { color: d.color }]}>{d.pct}%</Text>
+              <Text style={styles.distLabel}>{d.label}</Text>
+            </View>
+          ))}
+        </View>
+      </PanelCard>
+
+      {/* Model Pressure — Token Volume */}
+      <PanelCard>
+        <SectionHeader title="Model Pressure — Token Volume" />
+        <RankedListBar items={mockModelVolume} />
+      </PanelCard>
+
       {/* Value Density Mapping */}
       <PanelCard>
         <SectionHeader title="Value Density — Cost per 1K Tokens" />
-        <RankedListBar items={VALUE_DENSITY_ITEMS} />
+        <RankedListBar items={mockModelCostPerKTokens} />
+      </PanelCard>
+
+      {/* Model Breakdown Table */}
+      <PanelCard>
+        <SectionHeader title="Model Breakdown" />
+        <View style={styles.tableHeader}>
+          <Text style={[styles.tableHead, { flex: 2 }]}>MODEL</Text>
+          <Text style={[styles.tableHead, styles.tableNum]}>TOKENS</Text>
+          <Text style={[styles.tableHead, styles.tableNum]}>SESSIONS</Text>
+          <Text style={[styles.tableHead, styles.tableNum]}>SUCCESS</Text>
+          <Text style={[styles.tableHead, styles.tableNum]}>$/K</Text>
+        </View>
+        {mockModelBreakdown.map((row, i) => (
+          <View key={i} style={[styles.tableRow, i < mockModelBreakdown.length - 1 && styles.tableRowBorder]}>
+            <View style={{ flex: 2 }}>
+              <Text style={styles.tableModel} numberOfLines={1}>{row.name}</Text>
+              <Text style={styles.tableProvider}>{row.provider}</Text>
+            </View>
+            <Text style={[styles.tableCell, styles.tableNum]}>{row.tokensLabel}</Text>
+            <Text style={[styles.tableCell, styles.tableNum]}>{row.sessions}</Text>
+            <Text style={[styles.tableCell, styles.tableNum, {
+              color: row.successRate >= 90 ? colors.accentColor :
+                row.successRate >= 75 ? colors.warningText : colors.criticalText,
+            }]}>{row.successRate.toFixed(0)}%</Text>
+            <Text style={[styles.tableCell, styles.tableNum]}>{row.costLabel}</Text>
+          </View>
+        ))}
       </PanelCard>
 
       {/* Provider Efficiency Matrix */}
@@ -169,30 +237,7 @@ export function AnalyticsScreen() {
         ))}
       </PanelCard>
 
-      {/* Outcome Composition */}
-      <PanelCard>
-        <SectionHeader title="Outcome Composition" />
-        <CompositionBar
-          segments={[
-            { label: 'Success', value: successCount, color: colors.accentColor },
-            { label: 'Warning', value: warningCount, color: colors.warningText },
-            { label: 'Error', value: errorCount, color: colors.criticalText },
-            { label: 'Fallback', value: fallbackCount, color: colors.fallbackColor },
-            { label: 'Degraded', value: degradedCount, color: colors.degradedColor },
-            { label: 'Unknown', value: unknownCount, color: colors.unknownColor },
-          ]}
-          height={10}
-          showLegend
-        />
-      </PanelCard>
-
-      {/* Model Pressure */}
-      <PanelCard>
-        <SectionHeader title="Model Pressure — Token Volume" />
-        <RankedListBar items={MODEL_ITEMS} />
-      </PanelCard>
-
-      {/* Activity Heatmap (simplified grid) */}
+      {/* Activity Heatmap */}
       <PanelCard>
         <SectionHeader title="Activity Heatmap — Hour × Day" />
         <View style={styles.heatmapWrapper}>
@@ -210,10 +255,7 @@ export function AnalyticsScreen() {
                 return (
                   <View
                     key={hi}
-                    style={[styles.heatCell, {
-                      backgroundColor: colors.accentColor,
-                      opacity,
-                    }]}
+                    style={[styles.heatCell, { backgroundColor: colors.accentColor, opacity }]}
                   />
                 );
               })}
@@ -222,28 +264,17 @@ export function AnalyticsScreen() {
         </View>
       </PanelCard>
 
-      {/* Success Analysis */}
-      <PanelCard>
-        <SectionHeader title="Success Analysis" />
-        <View style={styles.successRow}>
-          <View style={styles.successStat}>
-            <Text style={styles.successValue}>{(successCount / mockSessions.length * 100).toFixed(0)}%</Text>
-            <Text style={styles.successLabel}>OVERALL</Text>
-          </View>
-          <View style={styles.successStat}>
-            <Text style={[styles.successValue, { color: colors.criticalText }]}>{errorCount}</Text>
-            <Text style={styles.successLabel}>ERRORS</Text>
-          </View>
-          <View style={styles.successStat}>
-            <Text style={[styles.successValue, { color: colors.warningText }]}>{fallbackCount}</Text>
-            <Text style={styles.successLabel}>FALLBACKS</Text>
-          </View>
-          <View style={styles.successStat}>
-            <Text style={[styles.successValue, { color: colors.degradedColor }]}>{degradedCount}</Text>
-            <Text style={styles.successLabel}>DEGRADED</Text>
-          </View>
-        </View>
-      </PanelCard>
+      {/* Success State Cards */}
+      <View style={styles.stateCardRow}>
+        <StateCard state="healthy"   title="Success" value={`${successCount}`}  subValue="sessions" />
+        <StateCard state="critical"  title="Error"   value={`${errorCount}`}    subValue="sessions" />
+        <StateCard state="fallback"  title="Fallback" value={`${fallbackCount}`} subValue="sessions" />
+      </View>
+      <View style={[styles.stateCardRow, { marginTop: 8 }]}>
+        <StateCard state="warning"   title="Warning"  value={`${warningCount}`}   subValue="sessions" />
+        <StateCard state="degraded"  title="Degraded" value={`${degradedCount}`}  subValue="sessions" />
+        <StateCard state="unknown"   title="Unknown"  value={`${unknownCount}`}   subValue="sessions" />
+      </View>
 
       {/* Active Surface Truth */}
       <PanelCard>
@@ -287,7 +318,7 @@ export function AnalyticsScreen() {
             <Text style={styles.dailyStat}>{formatCost(d.cost)}</Text>
             <Text style={[styles.dailyStat, {
               color: d.successRate >= 90 ? colors.accentColor :
-                d.successRate >= 80 ? colors.warningText : colors.criticalText
+                d.successRate >= 80 ? colors.warningText : colors.criticalText,
             }]}>{d.successRate.toFixed(1)}%</Text>
           </View>
         ))}
@@ -301,35 +332,8 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 14 },
   headerRow: { marginBottom: 4 },
   filterRow: { marginBottom: 12 },
-  heroGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
-  heroCard: {
-    flex: 1,
-    minWidth: 130,
-    backgroundColor: colors.bgTertiary,
-    borderWidth: 1,
-    borderColor: colors.borderColor,
-    borderRadius: 6,
-    padding: 12,
-  },
-  heroLabel: {
-    fontSize: 8,
-    fontFamily: 'Inter_600SemiBold',
-    color: colors.textMuted,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  heroValue: {
-    fontSize: 18,
-    fontFamily: 'Inter_700Bold',
-    color: colors.textPrimary,
-    letterSpacing: -0.4,
-  },
-  heroDelta: {
-    fontSize: 10,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 2,
-  },
+  heroGrid: { gap: 8, marginBottom: 10 },
+  stateCardRow: { flexDirection: 'row', gap: 8, marginBottom: 0 },
   trendFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -339,6 +343,74 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontFamily: 'Inter_400Regular',
     color: colors.textMuted,
+  },
+  distGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  distCell: {
+    flex: 1,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  distValue: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: -0.3,
+  },
+  distLabel: {
+    fontSize: 8,
+    fontFamily: 'Inter_400Regular',
+    color: colors.textMuted,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderColor,
+    marginBottom: 2,
+  },
+  tableHead: {
+    fontSize: 8,
+    fontFamily: 'Inter_600SemiBold',
+    color: colors.textMuted,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  tableNum: {
+    minWidth: 52,
+    textAlign: 'right',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+  },
+  tableRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderColor,
+  },
+  tableModel: {
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    color: colors.textPrimary,
+  },
+  tableProvider: {
+    fontSize: 9,
+    fontFamily: 'Inter_400Regular',
+    color: colors.textMuted,
+    marginTop: 1,
+  },
+  tableCell: {
+    fontSize: 11,
+    fontFamily: 'Inter_400Regular',
+    color: colors.textSecondary,
   },
   cadenceRow: {
     flexDirection: 'row',
@@ -384,26 +456,6 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 16,
     borderRadius: 2,
-  },
-  successRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 4,
-  },
-  successStat: { alignItems: 'center' },
-  successValue: {
-    fontSize: 22,
-    fontFamily: 'Inter_700Bold',
-    color: colors.accentColor,
-    letterSpacing: -0.5,
-  },
-  successLabel: {
-    fontSize: 8,
-    fontFamily: 'Inter_600SemiBold',
-    color: colors.textMuted,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginTop: 2,
   },
   ctxRow: {
     flexDirection: 'row',
