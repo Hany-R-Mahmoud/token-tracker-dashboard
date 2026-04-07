@@ -24,6 +24,20 @@ const colors = {
   unknownColor: '#5f7088',
   successSoft: 'rgba(54,255,196,0.12)',
 
+  // Distinct semantic state colors not covered above
+  mixedColor: '#d4a84b',
+  mixedSoft: 'rgba(212,168,75,0.14)',
+  unresolvedColor: '#e07050',
+  unresolvedSoft: 'rgba(224,112,80,0.14)',
+  errorColor: '#d63661',
+  errorSoft: 'rgba(214,54,97,0.14)',
+  loadingColor: '#4a9eba',
+  loadingSoft: 'rgba(74,158,186,0.12)',
+  emptyColor: '#6a7a90',
+  emptySoft: 'rgba(106,122,144,0.12)',
+  disconnectedColor: '#6b4f72',
+  disconnectedSoft: 'rgba(107,79,114,0.14)',
+
   // Scaffold compatibility aliases
   background: '#0b1326',
   foreground: '#dae2fd',
