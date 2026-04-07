@@ -125,7 +125,7 @@ export function AnalyticsScreen() {
           state="healthy"
           title="Sessions (7d)"
           value={curr7Sessions.toLocaleString()}
-          subValue={`${curr7Sessions} vs ${last7.reduce((_, d) => d.sessions, 0)} today`}
+          subValue={`avg ${Math.round(curr7Sessions / 7).toLocaleString()} / day`}
         />
         <StateCard
           state={curr7Spend > 1500 ? 'warning' : 'healthy'}
