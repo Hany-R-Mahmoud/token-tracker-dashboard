@@ -91,10 +91,13 @@ export const semanticColors: Record<HealthState, { dot: string; bg: string; text
 };
 
 export const typography = {
-  displayFont: 'Inter_700Bold',
-  headingFont: 'Inter_600SemiBold',
-  bodyFont: 'Inter_400Regular',
+  displayFont: 'SpaceGrotesk_700Bold',
+  headingFont: 'SpaceGrotesk_600SemiBold',
+  bodyFont: 'Manrope_400Regular',
+  bodyMediumFont: 'Manrope_500Medium',
+  bodySemiBoldFont: 'Manrope_600SemiBold',
   monoFont: 'Inter_400Regular',
+  labelFont: 'Inter_600SemiBold',
   sizes: {
     hero: 28,
     title: 18,
@@ -104,5 +107,16 @@ export const typography = {
     micro: 9,
   },
 };
+
+export function useTheme() {
+  return {
+    palette,
+    spacing,
+    radii,
+    elevation,
+    typography,
+    semanticColors,
+  };
+}
 
 export { colors };

@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   heroSub: { fontSize: 10, fontFamily: 'Inter_400Regular', color: colors.textMuted, marginTop: 2 },
   heroStats: { flexDirection: 'row', gap: 20 },
   heroStat: {},
-  heroStatValue: { fontSize: 22, fontFamily: 'Inter_700Bold', color: colors.accentColor, letterSpacing: -0.5 },
+  heroStatValue: { fontSize: 22, fontFamily: 'SpaceGrotesk_700Bold', color: colors.accentColor, letterSpacing: -0.5 },
   heroStatLabel: { fontSize: 8, fontFamily: 'Inter_600SemiBold', color: colors.textMuted, letterSpacing: 0.8, textTransform: 'uppercase' },
   filterRow: { marginBottom: 10 },
   kpiRow: { flexDirection: 'row', gap: 8 },

@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   },
   name: {
     color: colors.textPrimary,
-    fontFamily: 'Inter_700Bold',
+    fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: -0.3,
   },
   sub: {

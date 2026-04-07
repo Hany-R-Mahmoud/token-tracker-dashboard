@@ -12,6 +12,7 @@ import { IntegrityLane } from '@/src/components/charts/IntegrityLane';
 import { CompositionBar } from '@/src/components/charts/CompositionBar';
 import { RankedListBar } from '@/src/components/charts/RankedListBar';
 import { MiniBar } from '@/src/components/charts/MiniBar';
+import { ActivityLineChart } from '@/src/components/charts/ActivityLineChart';
 import { mockProviders } from '@/src/data/mock/providers';
 import { mockSessions } from '@/src/data/mock/sessions';
 import {
@@ -42,6 +43,7 @@ export function AnalyticsScreen() {
   const [timeFilter, setTimeFilter] = useState('7d');
 
   const last7 = mockDailyActivity.slice(-7);
+  const last14 = mockDailyActivity.slice(-14);
   const prev7 = mockDailyActivity.slice(-14, -7);
 
   const curr7Tokens = last7.reduce((s, d) => s + d.tokens, 0);
@@ -55,6 +57,10 @@ export function AnalyticsScreen() {
   const tokenTrend = last7.map(d => d.tokens / 1_000_000);
   const sessionTrend = last7.map(d => d.sessions);
   const successTrend = last7.map(d => d.successRate);
+
+  const chartLabels14 = last14.map(d => d.date.slice(5));
+  const chartTokens14 = last14.map(d => Math.round(d.tokens / 1_000_000 * 10) / 10);
+  const chartSessions14 = last14.map(d => d.sessions);
 
   const successCount = mockSessions.filter(s => s.status === 'success').length;
   const warningCount = mockSessions.filter(s => s.status === 'warning').length;
@@ -113,14 +119,35 @@ export function AnalyticsScreen() {
         />
       </View>
 
-      {/* Trend Panels */}
+      {/* Trend Panels — main 14-day view using chart-kit */}
       <PanelCard>
-        <SectionHeader title="Token Volume — 7 Days" />
+        <SectionHeader title="Token Volume — 14 Days (M tokens)" />
+        <ActivityLineChart
+          labels={chartLabels14.filter((_, i) => i % 2 === 0)}
+          data={chartTokens14.filter((_, i) => i % 2 === 0)}
+          color={colors.accentColor}
+          height={160}
+          suffix="M"
+        />
+      </PanelCard>
+
+      <PanelCard>
+        <SectionHeader title="Session Volume — 14 Days" />
+        <ActivityLineChart
+          labels={chartLabels14.filter((_, i) => i % 2 === 0)}
+          data={chartSessions14.filter((_, i) => i % 2 === 0)}
+          color="#a0c4ff"
+          height={140}
+        />
+      </PanelCard>
+
+      <PanelCard>
+        <SectionHeader title="Token Volume — 7 Days (Sparkline)" />
         <TrendSparkline data={tokenTrend} width={280} height={56} color={colors.accentColor} />
       </PanelCard>
 
       <PanelCard>
-        <SectionHeader title="Session Volume — 7 Days" />
+        <SectionHeader title="Session Volume — 7 Days (Sparkline)" />
         <TrendSparkline data={sessionTrend} width={280} height={56} color="#a0c4ff" />
       </PanelCard>
 

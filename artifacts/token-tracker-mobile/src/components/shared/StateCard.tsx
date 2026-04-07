@@ -54,19 +54,19 @@ const styles = StyleSheet.create({
   },
   value: {
     fontSize: 22,
-    fontFamily: 'Inter_700Bold',
+    fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: -0.5,
     marginBottom: 2,
   },
   subValue: {
     fontSize: 10,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'Manrope_400Regular',
     color: colors.textMuted,
     marginBottom: 2,
   },
   body: {
     fontSize: 11,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'Manrope_400Regular',
     color: colors.textSecondary,
     lineHeight: 16,
     marginTop: 2,

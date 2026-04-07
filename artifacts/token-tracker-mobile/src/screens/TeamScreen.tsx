@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: 16,
-    fontFamily: 'Inter_700Bold',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: colors.accentColor,
     letterSpacing: -0.3,
   },

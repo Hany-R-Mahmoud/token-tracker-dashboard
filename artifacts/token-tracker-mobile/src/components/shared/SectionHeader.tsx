@@ -59,13 +59,13 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     fontSize: 22,
-    fontFamily: 'Inter_700Bold',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: colors.textPrimary,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 12,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'Manrope_400Regular',
     color: colors.textMuted,
   },
 });

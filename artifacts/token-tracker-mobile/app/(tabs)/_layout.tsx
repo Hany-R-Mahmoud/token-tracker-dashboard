@@ -1,16 +1,18 @@
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
 import React from 'react';
-import { Platform, StyleSheet, View, useColorScheme } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import colors from '@/constants/colors';
 
-function TabIcon({ name, color, size }: { name: string; color: string; size: number }) {
-  return <Feather name={name as 'home'} size={size} color={color} />;
+type FeatherName = ComponentProps<typeof Feather>['name'];
+
+function TabIcon({ name, color, size }: { name: FeatherName; color: string; size: number }) {
+  return <Feather name={name} size={size} color={color} />;
 }
 
 export default function TabLayout() {
-  const isDark = useColorScheme() === 'dark';
   const isIOS = Platform.OS === 'ios';
   const isWeb = Platform.OS === 'web';
 

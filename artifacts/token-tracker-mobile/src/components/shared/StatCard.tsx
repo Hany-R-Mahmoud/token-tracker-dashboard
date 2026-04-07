@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
   },
   value: {
     fontSize: 20,
-    fontFamily: 'Inter_700Bold',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: colors.textPrimary,
     letterSpacing: -0.5,
   },
