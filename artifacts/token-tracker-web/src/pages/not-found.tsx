@@ -1,21 +1,64 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { Link } from 'wouter';
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
-          </div>
-
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
-          </p>
-        </CardContent>
-      </Card>
+    <div style={{
+      minHeight: '100vh',
+      width: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'var(--tt-bg)',
+      gap: 16,
+      padding: 40,
+    }}>
+      <div style={{
+        fontFamily: 'JetBrains Mono',
+        fontSize: 64,
+        fontWeight: 700,
+        color: 'var(--tt-accent)',
+        lineHeight: 1,
+        letterSpacing: '-0.02em',
+      }}>
+        404
+      </div>
+      <div style={{
+        fontFamily: "'Space Grotesk', sans-serif",
+        fontSize: 18,
+        fontWeight: 600,
+        color: 'var(--tt-text-primary)',
+        letterSpacing: '-0.01em',
+      }}>
+        Page not found
+      </div>
+      <div style={{
+        fontFamily: "'Manrope', sans-serif",
+        fontSize: 13,
+        color: 'var(--tt-text-muted)',
+        textAlign: 'center',
+        maxWidth: 360,
+        lineHeight: 1.6,
+      }}>
+        The route you navigated to does not exist in this dashboard.
+        Use the sidebar to access one of the available pages.
+      </div>
+      <Link href="/">
+        <div style={{
+          marginTop: 8,
+          padding: '8px 20px',
+          background: 'var(--tt-accent)',
+          color: 'var(--tt-bg)',
+          borderRadius: 5,
+          fontSize: 12,
+          fontWeight: 600,
+          fontFamily: "'Space Grotesk', sans-serif",
+          cursor: 'pointer',
+          letterSpacing: '0.02em',
+        }}>
+          Back to Overview
+        </div>
+      </Link>
     </div>
   );
 }
