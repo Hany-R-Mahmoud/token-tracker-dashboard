@@ -17,6 +17,8 @@ import { mockProviders } from '@/src/data/mock/providers';
 import { mockSessions } from '@/src/data/mock/sessions';
 import { mockSurfaceTruth, mockContextHealth, mockDailyActivity } from '@/src/data/mock/analytics';
 import { formatTokens, formatCost, formatMs } from '@/src/lib/format';
+import { mockPeriodMetrics } from '@/src/data/mock/metrics';
+import type { HealthState } from '@/src/types';
 
 const TIME_FILTERS = [
   { label: 'Last 7d', value: '7d' },
@@ -44,6 +46,8 @@ export function OverviewScreen() {
   const avgLatency = Math.round(mockProviders.reduce((s, p) => s + p.avgLatency, 0) / mockProviders.length);
   const avgSuccessRate = mockProviders.reduce((s, p) => s + p.successRate, 0) / mockProviders.length;
   const activeProviders = mockProviders.filter(p => p.status === 'healthy' || p.status === 'warning').length;
+  const criticalProviders = mockProviders.filter(p => p.status === 'critical').length;
+  const overallState: HealthState = criticalProviders > 0 ? 'critical' : mockProviders.some(p => p.status === 'warning') ? 'warning' : 'healthy';
   const recentTrend = mockDailyActivity.slice(-7).map(d => d.tokens / 1_000_000);
 
   const resolved = mockSurfaceTruth.filter(s => s.status === 'resolved').length;
@@ -61,7 +65,7 @@ export function OverviewScreen() {
       {/* Brand Header */}
       <View style={styles.header}>
         <BrandLockup size="sm" />
-        <StateChip state="warning" />
+        <StateChip state={overallState} />
       </View>
 
       {/* Operational Hero Band */}
@@ -71,7 +75,7 @@ export function OverviewScreen() {
             <Text style={styles.heroTitle}>System Status</Text>
             <Text style={styles.heroSub}>Production · Token Tracker v1.0</Text>
           </View>
-          <HealthDot state="warning" size={10} />
+          <HealthDot state={overallState} size={10} />
         </View>
         <View style={styles.heroStats}>
           <View style={styles.heroStat}>
@@ -83,7 +87,7 @@ export function OverviewScreen() {
             <Text style={styles.heroStatLabel}>TRUTH RESOLVED</Text>
           </View>
           <View style={styles.heroStat}>
-            <Text style={[styles.heroStatValue, { color: colors.criticalText }]}>1</Text>
+            <Text style={[styles.heroStatValue, { color: colors.criticalText }]}>{criticalProviders}</Text>
             <Text style={styles.heroStatLabel}>CRITICAL</Text>
           </View>
         </View>
@@ -94,19 +98,28 @@ export function OverviewScreen() {
         <FilterPills pills={TIME_FILTERS} active={timeFilter} onSelect={setTimeFilter} />
       </View>
 
-      {/* KPI Deck */}
-      <View style={styles.kpiRow}>
-        <StatCard label="Total Spend" value={formatCost(totalSpend)} delta="+3.2% 7d" deltaPositive={false} flex={1} />
-        <StatCard label="Sessions" value={totalSessions.toLocaleString()} delta="+8.4% 7d" deltaPositive={true} flex={1} />
-      </View>
-      <View style={[styles.kpiRow, { marginTop: 8 }]}>
-        <StatCard label="Total Tokens" value={formatTokens(totalTokens)} delta="+5.6% 7d" deltaPositive={true} flex={1} />
-        <StatCard label="Success Rate" value={`${avgSuccessRate.toFixed(1)}%`} delta="-1.2% 7d" deltaPositive={false} flex={1} />
-      </View>
-      <View style={[styles.kpiRow, { marginTop: 8 }]}>
-        <StatCard label="Avg Latency" value={formatMs(avgLatency)} delta="-4.8% 7d" deltaPositive={true} flex={1} />
-        <StatCard label="Fallback Rate" value="3.2%" delta="+1.4% 7d" deltaPositive={false} flex={1} />
-      </View>
+      {/* KPI Deck — deltas sourced from mockPeriodMetrics */}
+      {(() => {
+        const pm = (label: string) => mockPeriodMetrics.find(m => m.label === label);
+        const fallbackRate = mockSessions.filter(s => s.status === 'fallback').length / mockSessions.length * 100;
+        const fallbackM = pm('Fallback Rate');
+        return (
+          <>
+            <View style={styles.kpiRow}>
+              <StatCard label="Total Spend" value={formatCost(totalSpend)} delta={pm('Total Spend')?.delta ?? ''} deltaPositive={pm('Total Spend')?.deltaPositive ?? false} flex={1} />
+              <StatCard label="Sessions" value={totalSessions.toLocaleString()} delta={pm('Sessions')?.delta ?? ''} deltaPositive={pm('Sessions')?.deltaPositive ?? true} flex={1} />
+            </View>
+            <View style={[styles.kpiRow, { marginTop: 8 }]}>
+              <StatCard label="Total Tokens" value={formatTokens(totalTokens)} delta={pm('Total Tokens')?.delta ?? ''} deltaPositive={pm('Total Tokens')?.deltaPositive ?? true} flex={1} />
+              <StatCard label="Success Rate" value={`${avgSuccessRate.toFixed(1)}%`} delta={pm('Success Rate')?.delta ?? ''} deltaPositive={pm('Success Rate')?.deltaPositive ?? false} flex={1} />
+            </View>
+            <View style={[styles.kpiRow, { marginTop: 8 }]}>
+              <StatCard label="Avg Latency" value={formatMs(avgLatency)} delta={pm('Avg Latency')?.delta ?? ''} deltaPositive={pm('Avg Latency')?.deltaPositive ?? true} flex={1} />
+              <StatCard label="Fallback Rate" value={`${fallbackRate.toFixed(1)}%`} delta={fallbackM?.delta ?? ''} deltaPositive={fallbackM?.deltaPositive ?? false} flex={1} />
+            </View>
+          </>
+        );
+      })()}
 
       {/* Trend Activity */}
       <PanelCard>

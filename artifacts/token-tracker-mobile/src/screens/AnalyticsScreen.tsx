@@ -3,6 +3,7 @@ import { ScrollView, View, Text, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/constants/colors';
 import { StateChip } from '@/src/components/shared/StateChip';
+import { HealthDot } from '@/src/components/shared/HealthDot';
 import { StateCard } from '@/src/components/shared/StateCard';
 import { SectionHeader, PageHeader } from '@/src/components/shared/SectionHeader';
 import { FilterPills } from '@/src/components/shared/FilterPills';
@@ -30,7 +31,13 @@ import {
   mockOutcomeDistribution,
   mockProviderDistribution,
 } from '@/src/data/mock/models';
+import {
+  mockAssetVolatility,
+  mockSuccessFactors,
+  mockSuccessAnalysisSummary,
+} from '@/src/data/mock/metrics';
 import { formatTokens, formatCost } from '@/src/lib/format';
+import { HealthState } from '@/src/types';
 
 const TIME_FILTERS = [
   { label: '7d', value: '7d' },
@@ -38,40 +45,55 @@ const TIME_FILTERS = [
   { label: '30d', value: '30d' },
 ];
 
+const VOLATILITY_RISK_STATE: Record<string, HealthState> = {
+  low:     'healthy',
+  medium:  'warning',
+  high:    'critical',
+  extreme: 'critical',
+};
+
+const FACTOR_STATE: Record<string, HealthState> = {
+  positive: 'healthy',
+  negative: 'critical',
+  neutral:  'unknown',
+};
+
 export function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
   const [timeFilter, setTimeFilter] = useState('7d');
 
-  const last7 = mockDailyActivity.slice(-7);
+  const last7  = mockDailyActivity.slice(-7);
   const last14 = mockDailyActivity.slice(-14);
-  const prev7 = mockDailyActivity.slice(-14, -7);
+  const prev7  = mockDailyActivity.slice(-14, -7);
 
-  const curr7Tokens = last7.reduce((s, d) => s + d.tokens, 0);
-  const prev7Tokens = prev7.reduce((s, d) => s + d.tokens, 0);
+  const curr7Tokens   = last7.reduce((s, d) => s + d.tokens, 0);
+  const prev7Tokens   = prev7.reduce((s, d) => s + d.tokens, 0);
   const curr7Sessions = last7.reduce((s, d) => s + d.sessions, 0);
-  const curr7Spend = last7.reduce((s, d) => s + d.cost, 0);
-  const curr7Success = last7.reduce((s, d) => s + d.successRate, 0) / last7.length;
+  const curr7Spend    = last7.reduce((s, d) => s + d.cost, 0);
+  const curr7Success  = last7.reduce((s, d) => s + d.successRate, 0) / last7.length;
+  const prev7Success  = prev7.reduce((s, d) => s + d.successRate, 0) / prev7.length;
 
-  const tokenDelta = ((curr7Tokens - prev7Tokens) / prev7Tokens * 100).toFixed(1);
+  const tokenDeltaNum   = ((curr7Tokens - prev7Tokens) / prev7Tokens) * 100;
+  const successDeltaNum = curr7Success - prev7Success;
 
-  const tokenTrend = last7.map(d => d.tokens / 1_000_000);
+  const tokenTrend   = last7.map(d => d.tokens / 1_000_000);
   const sessionTrend = last7.map(d => d.sessions);
   const successTrend = last7.map(d => d.successRate);
 
-  const chartLabels14 = last14.map(d => d.date.slice(5));
-  const chartTokens14 = last14.map(d => Math.round(d.tokens / 1_000_000 * 10) / 10);
+  const chartLabels14  = last14.map(d => d.date.slice(5));
+  const chartTokens14  = last14.map(d => Math.round(d.tokens / 1_000_000 * 10) / 10);
   const chartSessions14 = last14.map(d => d.sessions);
 
-  const successCount = mockSessions.filter(s => s.status === 'success').length;
-  const warningCount = mockSessions.filter(s => s.status === 'warning').length;
-  const errorCount = mockSessions.filter(s => s.status === 'error').length;
+  const successCount  = mockSessions.filter(s => s.status === 'success').length;
+  const warningCount  = mockSessions.filter(s => s.status === 'warning').length;
+  const errorCount    = mockSessions.filter(s => s.status === 'error').length;
   const fallbackCount = mockSessions.filter(s => s.status === 'fallback').length;
   const degradedCount = mockSessions.filter(s => s.status === 'degraded').length;
-  const unknownCount = mockSessions.filter(s => s.status === 'unknown').length;
+  const unknownCount  = mockSessions.filter(s => s.status === 'unknown').length;
 
-  const resolved = mockSurfaceTruth.filter(s => s.status === 'resolved').length;
-  const unresolved = mockSurfaceTruth.filter(s => s.status === 'unresolved').length;
-  const unknownTruth = mockSurfaceTruth.filter(s => s.status === 'unknown').length;
+  const resolved      = mockSurfaceTruth.filter(s => s.status === 'resolved').length;
+  const unresolved    = mockSurfaceTruth.filter(s => s.status === 'unresolved').length;
+  const unknownTruth  = mockSurfaceTruth.filter(s => s.status === 'unknown').length;
 
   const webTopPad = Platform.OS === 'web' ? 67 : 0;
 
@@ -91,35 +113,35 @@ export function AnalyticsScreen() {
         <FilterPills pills={TIME_FILTERS} active={timeFilter} onSelect={setTimeFilter} />
       </View>
 
-      {/* Analytics Hero — State Cards */}
+      {/* Analytics Hero — State Cards derived from mock data */}
       <View style={styles.heroGrid}>
         <StateCard
-          state="healthy"
+          state={tokenDeltaNum >= 0 ? 'healthy' : 'warning'}
           title="Tokens (7d)"
           value={formatTokens(curr7Tokens)}
-          subValue={`+${tokenDelta}% vs prior 7d`}
+          subValue={`${tokenDeltaNum >= 0 ? '+' : ''}${tokenDeltaNum.toFixed(1)}% vs prior 7d`}
         />
         <StateCard
           state="healthy"
           title="Sessions (7d)"
           value={curr7Sessions.toLocaleString()}
-          subValue="+9.3% vs prior 7d"
+          subValue={`${curr7Sessions} vs ${last7.reduce((_, d) => d.sessions, 0)} today`}
         />
         <StateCard
-          state="warning"
+          state={curr7Spend > 1500 ? 'warning' : 'healthy'}
           title="Spend (7d)"
           value={formatCost(curr7Spend)}
-          subValue="+9.6% vs prior 7d"
+          subValue={`${formatCost(curr7Spend / curr7Sessions)} / session`}
         />
         <StateCard
-          state="mixed"
+          state={curr7Success >= 90 ? 'healthy' : curr7Success >= 80 ? 'mixed' : 'warning'}
           title="Success (7d)"
           value={`${curr7Success.toFixed(1)}%`}
-          subValue="+0.2% vs prior 7d"
+          subValue={`${successDeltaNum >= 0 ? '+' : ''}${successDeltaNum.toFixed(1)}% vs prior 7d`}
         />
       </View>
 
-      {/* Trend Panels — main 14-day view using chart-kit */}
+      {/* Trend Panels — chart-kit for 14-day */}
       <PanelCard>
         <SectionHeader title="Token Volume — 14 Days (M tokens)" />
         <ActivityLineChart
@@ -139,16 +161,6 @@ export function AnalyticsScreen() {
           color="#a0c4ff"
           height={140}
         />
-      </PanelCard>
-
-      <PanelCard>
-        <SectionHeader title="Token Volume — 7 Days (Sparkline)" />
-        <TrendSparkline data={tokenTrend} width={280} height={56} color={colors.accentColor} />
-      </PanelCard>
-
-      <PanelCard>
-        <SectionHeader title="Session Volume — 7 Days (Sparkline)" />
-        <TrendSparkline data={sessionTrend} width={280} height={56} color="#a0c4ff" />
       </PanelCard>
 
       <PanelCard>
@@ -188,14 +200,93 @@ export function AnalyticsScreen() {
           height={10}
           showLegend
         />
-        <View style={styles.distGrid}>
-          {mockProviderDistribution.map(d => (
-            <View key={d.label} style={styles.distCell}>
-              <Text style={[styles.distValue, { color: d.color }]}>{d.pct}%</Text>
-              <Text style={styles.distLabel}>{d.label}</Text>
+      </PanelCard>
+
+      {/* Asset Volatility */}
+      <PanelCard>
+        <SectionHeader title="Asset Volatility" />
+        {mockAssetVolatility.map((v, i) => (
+          <View key={i} style={styles.volatilityRow}>
+            <HealthDot state={VOLATILITY_RISK_STATE[v.riskLevel]} size={7} />
+            <View style={styles.volatilityInfo}>
+              <Text style={styles.volatilityModel} numberOfLines={1}>{v.model}</Text>
+              <Text style={styles.volatilityProvider}>{v.provider}</Text>
             </View>
-          ))}
+            <View style={styles.volatilityStats}>
+              <Text style={[styles.volatilityScore, {
+                color: v.volatilityScore >= 0.7 ? colors.criticalText :
+                  v.volatilityScore >= 0.4 ? colors.warningText : colors.accentColor
+              }]}>{(v.volatilityScore * 100).toFixed(0)}</Text>
+              <Text style={styles.volatilityLabel}>SCORE</Text>
+            </View>
+            <View style={styles.volatilityTrack}>
+              <View style={[styles.volatilityFill, {
+                width: `${v.volatilityScore * 100}%` as `${number}%`,
+                backgroundColor: v.volatilityScore >= 0.7 ? colors.criticalText :
+                  v.volatilityScore >= 0.4 ? colors.warningText : colors.accentColor,
+              }]} />
+            </View>
+            <StateChip
+              state={v.riskLevel === 'extreme' ? 'critical' : v.riskLevel === 'high' ? 'warning' : v.riskLevel === 'medium' ? 'mixed' : 'healthy'}
+              label={v.riskLevel.toUpperCase()}
+            />
+          </View>
+        ))}
+        <View style={styles.volatilityLegend}>
+          <Text style={styles.volatilityLegendText}>
+            Volatility score = normalized σ(success rate, latency, cost) over trailing 30d sessions
+          </Text>
         </View>
+      </PanelCard>
+
+      {/* Success Analysis */}
+      <PanelCard>
+        <SectionHeader title="Success Analysis" />
+        <View style={styles.successRow}>
+          <View style={styles.successStat}>
+            <Text style={[styles.successValue, { color: colors.accentColor }]}>{mockSuccessAnalysisSummary.overallPct}%</Text>
+            <Text style={styles.successLabel}>OVERALL</Text>
+          </View>
+          <View style={styles.successStat}>
+            <Text style={[styles.successValue, { color: colors.criticalText }]}>{mockSuccessAnalysisSummary.errorPct}%</Text>
+            <Text style={styles.successLabel}>ERROR</Text>
+          </View>
+          <View style={styles.successStat}>
+            <Text style={[styles.successValue, { color: colors.fallbackColor }]}>{mockSuccessAnalysisSummary.fallbackPct}%</Text>
+            <Text style={styles.successLabel}>FALLBACK</Text>
+          </View>
+          <View style={styles.successStat}>
+            <Text style={[styles.successValue, { color: colors.degradedColor }]}>{mockSuccessAnalysisSummary.degradedPct}%</Text>
+            <Text style={styles.successLabel}>DEGRADED</Text>
+          </View>
+        </View>
+        <View style={[styles.successRow, { marginTop: 10, flexWrap: 'wrap' }]}>
+          <View style={styles.trendPill}>
+            <Text style={styles.trendPillLabel}>7d trend</Text>
+            <Text style={[styles.trendPillValue, { color: colors.accentColor }]}>{mockSuccessAnalysisSummary.trend7d}</Text>
+          </View>
+          <View style={styles.trendPill}>
+            <Text style={styles.trendPillLabel}>30d trend</Text>
+            <Text style={[styles.trendPillValue, { color: colors.criticalText }]}>{mockSuccessAnalysisSummary.trend30d}</Text>
+          </View>
+        </View>
+
+        <View style={styles.divider} />
+        <Text style={styles.subSectionTitle}>EXPLANATION FACTORS</Text>
+        {mockSuccessFactors.map((f, i) => (
+          <View key={i} style={styles.factorRow}>
+            <HealthDot state={FACTOR_STATE[f.direction]} size={6} />
+            <Text style={styles.factorLabel} numberOfLines={1}>{f.factor}</Text>
+            <View style={styles.factorTrack}>
+              <View style={[styles.factorFill, {
+                width: `${f.impact * 100}%` as `${number}%`,
+                backgroundColor: f.direction === 'positive' ? colors.accentColor :
+                  f.direction === 'negative' ? colors.criticalText : colors.unknownColor,
+              }]} />
+            </View>
+            <Text style={styles.factorFreq}>{f.frequency}x</Text>
+          </View>
+        ))}
       </PanelCard>
 
       {/* Model Pressure — Token Volume */}
@@ -216,8 +307,8 @@ export function AnalyticsScreen() {
         <View style={styles.tableHeader}>
           <Text style={[styles.tableHead, { flex: 2 }]}>MODEL</Text>
           <Text style={[styles.tableHead, styles.tableNum]}>TOKENS</Text>
-          <Text style={[styles.tableHead, styles.tableNum]}>SESSIONS</Text>
-          <Text style={[styles.tableHead, styles.tableNum]}>SUCCESS</Text>
+          <Text style={[styles.tableHead, styles.tableNum]}>SES.</Text>
+          <Text style={[styles.tableHead, styles.tableNum]}>OK%</Text>
           <Text style={[styles.tableHead, styles.tableNum]}>$/K</Text>
         </View>
         {mockModelBreakdown.map((row, i) => (
@@ -280,10 +371,7 @@ export function AnalyticsScreen() {
                 const maxVal = 36;
                 const opacity = 0.05 + (val / maxVal) * 0.95;
                 return (
-                  <View
-                    key={hi}
-                    style={[styles.heatCell, { backgroundColor: colors.accentColor, opacity }]}
-                  />
+                  <View key={hi} style={[styles.heatCell, { backgroundColor: colors.accentColor, opacity }]} />
                 );
               })}
             </View>
@@ -293,14 +381,14 @@ export function AnalyticsScreen() {
 
       {/* Success State Cards */}
       <View style={styles.stateCardRow}>
-        <StateCard state="healthy"   title="Success" value={`${successCount}`}  subValue="sessions" />
-        <StateCard state="critical"  title="Error"   value={`${errorCount}`}    subValue="sessions" />
-        <StateCard state="fallback"  title="Fallback" value={`${fallbackCount}`} subValue="sessions" />
+        <StateCard state="healthy"  title="Success"  value={`${successCount}`}  subValue="sessions" />
+        <StateCard state="critical" title="Error"    value={`${errorCount}`}    subValue="sessions" />
+        <StateCard state="fallback" title="Fallback" value={`${fallbackCount}`} subValue="sessions" />
       </View>
       <View style={[styles.stateCardRow, { marginTop: 8 }]}>
-        <StateCard state="warning"   title="Warning"  value={`${warningCount}`}   subValue="sessions" />
-        <StateCard state="degraded"  title="Degraded" value={`${degradedCount}`}  subValue="sessions" />
-        <StateCard state="unknown"   title="Unknown"  value={`${unknownCount}`}   subValue="sessions" />
+        <StateCard state="warning"  title="Warning"  value={`${warningCount}`}   subValue="sessions" />
+        <StateCard state="degraded" title="Degraded" value={`${degradedCount}`}  subValue="sessions" />
+        <StateCard state="unknown"  title="Unknown"  value={`${unknownCount}`}   subValue="sessions" />
       </View>
 
       {/* Active Surface Truth */}
@@ -308,9 +396,9 @@ export function AnalyticsScreen() {
         <SectionHeader title="Active Surface Truth" />
         <CompositionBar
           segments={[
-            { label: 'Resolved', value: resolved, color: colors.accentColor },
-            { label: 'Unresolved', value: unresolved, color: colors.warningText },
-            { label: 'Unknown', value: unknownTruth, color: colors.unknownColor },
+            { label: 'Resolved',   value: resolved,     color: colors.accentColor },
+            { label: 'Unresolved', value: unresolved,   color: colors.warningText },
+            { label: 'Unknown',    value: unknownTruth, color: colors.unknownColor },
           ]}
           height={8}
           showLegend
@@ -361,175 +449,60 @@ const styles = StyleSheet.create({
   filterRow: { marginBottom: 12 },
   heroGrid: { gap: 8, marginBottom: 10 },
   stateCardRow: { flexDirection: 'row', gap: 8, marginBottom: 0 },
-  trendFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  trendFooterText: {
-    fontSize: 9,
-    fontFamily: 'Inter_400Regular',
-    color: colors.textMuted,
-  },
-  distGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 10,
-  },
-  distCell: {
-    flex: 1,
-    minWidth: 70,
-    alignItems: 'center',
-  },
-  distValue: {
-    fontSize: 16,
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: -0.3,
-  },
-  distLabel: {
-    fontSize: 8,
-    fontFamily: 'Inter_400Regular',
-    color: colors.textMuted,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-    marginTop: 2,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderColor,
-    marginBottom: 2,
-  },
-  tableHead: {
-    fontSize: 8,
-    fontFamily: 'Inter_600SemiBold',
-    color: colors.textMuted,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  tableNum: {
-    minWidth: 52,
-    textAlign: 'right',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 7,
-  },
-  tableRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderColor,
-  },
-  tableModel: {
-    fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
-    color: colors.textPrimary,
-  },
-  tableProvider: {
-    fontSize: 9,
-    fontFamily: 'Inter_400Regular',
-    color: colors.textMuted,
-    marginTop: 1,
-  },
-  tableCell: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    color: colors.textSecondary,
-  },
-  cadenceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  cadenceLabel: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  cadenceStat: {
-    fontSize: 10,
-    fontFamily: 'Inter_400Regular',
-    color: colors.textMuted,
-    minWidth: 40,
-    textAlign: 'right',
-  },
+  trendFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  trendFooterText: { fontSize: 9, fontFamily: 'Inter_400Regular', color: colors.textMuted },
+  distGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  distCell: { flex: 1, minWidth: 70, alignItems: 'center' },
+  distValue: { fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.3 },
+  distLabel: { fontSize: 8, fontFamily: 'Inter_400Regular', color: colors.textMuted, letterSpacing: 0.4, textTransform: 'uppercase', marginTop: 2 },
+  volatilityRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.borderColor },
+  volatilityInfo: { flex: 1 },
+  volatilityModel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: colors.textPrimary },
+  volatilityProvider: { fontSize: 9, fontFamily: 'Manrope_400Regular', color: colors.textMuted, marginTop: 1 },
+  volatilityStats: { alignItems: 'center', minWidth: 32 },
+  volatilityScore: { fontSize: 14, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.3 },
+  volatilityLabel: { fontSize: 7, fontFamily: 'Inter_600SemiBold', color: colors.textMuted, letterSpacing: 0.6, textTransform: 'uppercase' },
+  volatilityTrack: { width: 60, height: 4, backgroundColor: colors.bgSecondary, borderRadius: 2, overflow: 'hidden' },
+  volatilityFill: { height: '100%', borderRadius: 2 },
+  volatilityLegend: { marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.borderColor },
+  volatilityLegendText: { fontSize: 9, fontFamily: 'Manrope_400Regular', color: colors.textMuted, lineHeight: 14 },
+  successRow: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 4 },
+  successStat: { alignItems: 'center' },
+  successValue: { fontSize: 22, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.5 },
+  successLabel: { fontSize: 8, fontFamily: 'Inter_600SemiBold', color: colors.textMuted, letterSpacing: 0.8, textTransform: 'uppercase', marginTop: 2 },
+  trendPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.bgSecondary, borderRadius: 4, paddingHorizontal: 10, paddingVertical: 5, marginRight: 8, marginBottom: 4 },
+  trendPillLabel: { fontSize: 9, fontFamily: 'Inter_400Regular', color: colors.textMuted },
+  trendPillValue: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+  divider: { height: 1, backgroundColor: colors.borderColor, marginVertical: 12 },
+  subSectionTitle: { fontSize: 8, fontFamily: 'Inter_600SemiBold', color: colors.textMuted, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8 },
+  factorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  factorLabel: { fontSize: 11, fontFamily: 'Manrope_400Regular', color: colors.textSecondary, flex: 1 },
+  factorTrack: { width: 80, height: 4, backgroundColor: colors.bgSecondary, borderRadius: 2, overflow: 'hidden' },
+  factorFill: { height: '100%', borderRadius: 2 },
+  factorFreq: { fontSize: 9, fontFamily: 'Inter_400Regular', color: colors.textMuted, minWidth: 24, textAlign: 'right' },
+  tableHeader: { flexDirection: 'row', alignItems: 'center', paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: colors.borderColor, marginBottom: 2 },
+  tableHead: { fontSize: 8, fontFamily: 'Inter_600SemiBold', color: colors.textMuted, letterSpacing: 0.6, textTransform: 'uppercase' },
+  tableNum: { minWidth: 48, textAlign: 'right' },
+  tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 7 },
+  tableRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.borderColor },
+  tableModel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: colors.textPrimary },
+  tableProvider: { fontSize: 9, fontFamily: 'Manrope_400Regular', color: colors.textMuted, marginTop: 1 },
+  tableCell: { fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.textSecondary },
+  cadenceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  cadenceLabel: { fontSize: 11, fontFamily: 'Manrope_400Regular', color: colors.textSecondary, flex: 1 },
+  cadenceStat: { fontSize: 10, fontFamily: 'Inter_400Regular', color: colors.textMuted, minWidth: 40, textAlign: 'right' },
   heatmapWrapper: { gap: 3 },
-  heatmapHours: {
-    flexDirection: 'row',
-    marginLeft: 28,
-    gap: 3,
-    marginBottom: 2,
-  },
-  heatmapHourLabel: {
-    fontSize: 8,
-    fontFamily: 'Inter_400Regular',
-    color: colors.textMuted,
-    flex: 1,
-    textAlign: 'center',
-  },
+  heatmapHours: { flexDirection: 'row', marginLeft: 28, gap: 3, marginBottom: 2 },
+  heatmapHourLabel: { fontSize: 8, fontFamily: 'Inter_400Regular', color: colors.textMuted, flex: 1, textAlign: 'center' },
   heatmapRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  heatmapDayLabel: {
-    fontSize: 8,
-    fontFamily: 'Inter_400Regular',
-    color: colors.textMuted,
-    width: 24,
-  },
-  heatCell: {
-    flex: 1,
-    height: 16,
-    borderRadius: 2,
-  },
-  ctxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 7,
-  },
-  ctxModel: {
-    fontSize: 10,
-    fontFamily: 'Inter_400Regular',
-    color: colors.textSecondary,
-    width: 105,
-  },
-  ctxTrack: {
-    flex: 1,
-    height: 4,
-    backgroundColor: colors.bgSecondary,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
+  heatmapDayLabel: { fontSize: 8, fontFamily: 'Inter_400Regular', color: colors.textMuted, width: 24 },
+  heatCell: { flex: 1, height: 16, borderRadius: 2 },
+  ctxRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 7 },
+  ctxModel: { fontSize: 10, fontFamily: 'Manrope_400Regular', color: colors.textSecondary, width: 105 },
+  ctxTrack: { flex: 1, height: 4, backgroundColor: colors.bgSecondary, borderRadius: 2, overflow: 'hidden' },
   ctxFill: { height: '100%', borderRadius: 2 },
-  ctxPct: {
-    fontSize: 9,
-    fontFamily: 'Inter_400Regular',
-    color: colors.textMuted,
-    width: 28,
-    textAlign: 'right',
-  },
-  dailyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderColor,
-    gap: 4,
-  },
-  dailyDate: {
-    fontSize: 10,
-    fontFamily: 'Inter_600SemiBold',
-    color: colors.textMuted,
-    width: 44,
-  },
-  dailyStat: {
-    flex: 1,
-    fontSize: 10,
-    fontFamily: 'Inter_400Regular',
-    color: colors.textSecondary,
-    textAlign: 'right',
-  },
+  ctxPct: { fontSize: 9, fontFamily: 'Inter_400Regular', color: colors.textMuted, width: 28, textAlign: 'right' },
+  dailyRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.borderColor, gap: 4 },
+  dailyDate: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: colors.textMuted, width: 44 },
+  dailyStat: { flex: 1, fontSize: 10, fontFamily: 'Inter_400Regular', color: colors.textSecondary, textAlign: 'right' },
 });
