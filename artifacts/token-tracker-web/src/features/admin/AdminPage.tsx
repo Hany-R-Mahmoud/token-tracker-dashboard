@@ -4,6 +4,7 @@ import { HealthDot } from '@/components/shared/StateChip';
 import { IntegrityLane } from '@/components/charts/IntegrityLane';
 import { mockSystemHealth, mockIngestionRecords, mockAuditLog, mockTeamManagement, mockProviderConfig } from '@/data/mock/admin';
 import { mockTeamMembers } from '@/data/mock/team';
+import { HealthState } from '@/types';
 
 const panelStyle: React.CSSProperties = {
   background: 'var(--tt-bg-secondary)',
@@ -60,22 +61,21 @@ export function AdminPage() {
 
       {/* System Health Summary */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 24 }}>
-        {[
-          { label: 'Overall Status', value: mockSystemHealth.overall, isState: true },
-          { label: 'Active Providers', value: `${mockSystemHealth.activeProviders} / ${mockSystemHealth.providerCount}`, isState: false },
-          { label: 'Degraded', value: String(mockSystemHealth.degradedProviders), isState: false },
-          { label: 'Critical', value: String(mockSystemHealth.criticalProviders), isState: false },
-          { label: 'Truth Resolution', value: `${resolutionRate.toFixed(0)}%`, isState: false },
-        ].map(item => (
+        <div className="tt-panel" style={{ padding: '12px 14px' }}>
+          <div className="tt-label">Overall Status</div>
+          <div style={{ marginTop: 6 }}><StateChip state={mockSystemHealth.overall} size="md" /></div>
+        </div>
+        {(
+          [
+            { label: 'Active Providers', value: `${mockSystemHealth.activeProviders} / ${mockSystemHealth.providerCount}` },
+            { label: 'Degraded', value: String(mockSystemHealth.degradedProviders) },
+            { label: 'Critical', value: String(mockSystemHealth.criticalProviders) },
+            { label: 'Truth Resolution', value: `${resolutionRate.toFixed(0)}%` },
+          ] as const
+        ).map(item => (
           <div key={item.label} className="tt-panel" style={{ padding: '12px 14px' }}>
             <div className="tt-label">{item.label}</div>
-            <div style={{ marginTop: 6 }}>
-              {item.isState ? (
-                <StateChip state={item.value as any} size="md" />
-              ) : (
-                <div style={{ fontFamily: 'JetBrains Mono', fontSize: 20, color: 'var(--tt-text-primary)' }}>{item.value}</div>
-              )}
-            </div>
+            <div style={{ marginTop: 6, fontFamily: 'JetBrains Mono', fontSize: 20, color: 'var(--tt-text-primary)' }}>{item.value}</div>
           </div>
         ))}
       </div>
@@ -146,7 +146,7 @@ export function AdminPage() {
             <div key={team.id} style={{ padding: '10px 12px', background: 'var(--tt-bg)', border: '1px solid var(--tt-border)', borderRadius: 5 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                 <span style={{ fontSize: 12, fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif", color: 'var(--tt-text-primary)' }}>{team.name}</span>
-                <StateChip state={team.status as any} size="sm" />
+                <StateChip state={team.status} size="sm" />
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
                 <div>

@@ -1,4 +1,4 @@
-import { SystemHealth, IngestionRecord, AuditEntry } from '@/types';
+import { SystemHealth, IngestionRecord, AuditEntry, HealthState } from '@/types';
 
 export const mockSystemHealth: SystemHealth = {
   overall: 'warning',
@@ -79,13 +79,31 @@ export const mockAuditLog: AuditEntry[] = [
   { id: 'aud_020', timestamp: '2026-04-07T07:08:00Z', actor: 'admin@tokentracker.io', action: 'LOGIN', target: 'admin@tokentracker.io', outcome: 'success' },
 ];
 
-export const mockTeamManagement = [
+export interface TeamGroup {
+  id: string;
+  name: string;
+  members: number;
+  tokens: number;
+  spend: number;
+  status: HealthState;
+}
+
+export interface ProviderConfig {
+  id: string;
+  name: string;
+  apiKeyStatus: 'active' | 'inactive';
+  rateLimit: number;
+  status: HealthState;
+  endpoint: string;
+}
+
+export const mockTeamManagement: TeamGroup[] = [
   { id: 'team_1', name: 'Core Platform', members: 6, tokens: 42400000, spend: 1634.80, status: 'healthy' },
   { id: 'team_2', name: 'Research', members: 4, tokens: 28600000, spend: 1102.40, status: 'healthy' },
   { id: 'team_3', name: 'Infrastructure', members: 2, tokens: 8200000, spend: 316.60, status: 'warning' },
 ];
 
-export const mockProviderConfig = [
+export const mockProviderConfig: ProviderConfig[] = [
   { id: 'openai', name: 'OpenAI', apiKeyStatus: 'active', rateLimit: 10000, status: 'healthy', endpoint: 'api.openai.com' },
   { id: 'anthropic', name: 'Anthropic', apiKeyStatus: 'active', rateLimit: 5000, status: 'healthy', endpoint: 'api.anthropic.com' },
   { id: 'gemini', name: 'Gemini', apiKeyStatus: 'active', rateLimit: 2000, status: 'warning', endpoint: 'generativelanguage.googleapis.com' },

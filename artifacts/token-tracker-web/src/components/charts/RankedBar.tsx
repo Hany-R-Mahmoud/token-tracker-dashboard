@@ -35,8 +35,8 @@ export function RankedBar({ items, formatValue, color = 'var(--tt-accent)', maxI
             fontSize: 11,
             color: 'var(--tt-text-secondary)',
             fontFamily: "'Manrope', sans-serif",
-            truncate: 'ellipsis',
             overflow: 'hidden',
+            textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             flexShrink: 0,
           }}>

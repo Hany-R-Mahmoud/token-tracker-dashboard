@@ -8,6 +8,7 @@ import { HeatmapGrid } from '@/components/charts/HeatmapGrid';
 import { CompositionBar } from '@/components/charts/CompositionBar';
 import { RankedBar } from '@/components/charts/RankedBar';
 import { SparkLine } from '@/components/charts/SparkLine';
+import { MatrixComparison } from '@/components/charts/MatrixComparison';
 import { mockProviders } from '@/data/mock/providers';
 import { mockModels } from '@/data/mock/models';
 import { mockSessions } from '@/data/mock/sessions';
@@ -341,6 +342,31 @@ export function AnalyticsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Provider × Model Token Matrix */}
+        {(() => {
+          const topProviders = mockProviders.slice(0, 4).map(p => p.name);
+          const topModels = mockModels.slice(0, 6).map(m => m.name.split(' ').slice(-2).join(' '));
+          const matrix = topProviders.map(pName => {
+            const provider = mockProviders.find(p => p.name === pName);
+            return topModels.map((_, mi) => {
+              const model = mockModels[mi];
+              const isMatch = provider?.models.includes(model.name) ?? false;
+              return { value: isMatch ? Math.round(model.tokens / 1e3) : 0 };
+            });
+          });
+          return (
+            <div style={{ ...panelStyle, marginBottom: 16 }}>
+              <div style={labelStyle}>Provider × Model — Token Distribution (K)</div>
+              <MatrixComparison
+                data={matrix}
+                rowLabels={topProviders}
+                colLabels={topModels}
+                formatValue={v => v === 0 ? '' : `${v}K`}
+              />
+            </div>
+          );
+        })()}
 
         {/* Daily Activity Table */}
         <div style={{ ...panelStyle, overflowX: 'auto' }}>

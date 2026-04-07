@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "@/components/shared/AppShell";
+import { ProtectedRoute } from "@/components/shared/ProtectedRoute";
 import { OverviewPage } from "@/features/overview/OverviewPage";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { TeamPage } from "@/features/team/TeamPage";
@@ -21,8 +22,16 @@ function Router() {
         <Route path="/analytics" component={AnalyticsPage} />
         <Route path="/team" component={TeamPage} />
         <Route path="/sessions" component={SessionsPage} />
-        <Route path="/admin" component={AdminPage} />
-        <Route path="/settings" component={SettingsPage} />
+        <Route path="/admin">
+          <ProtectedRoute requiredRole="admin" resource="admin-panel">
+            <AdminPage />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/settings">
+          <ProtectedRoute requiredRole="admin" resource="settings">
+            <SettingsPage />
+          </ProtectedRoute>
+        </Route>
         <Route component={NotFound} />
       </Switch>
     </AppShell>

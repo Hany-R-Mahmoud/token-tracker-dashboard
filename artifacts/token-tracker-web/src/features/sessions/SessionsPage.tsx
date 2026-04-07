@@ -1,4 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  flexRender,
+  createColumnHelper,
+  SortingState,
+} from '@tanstack/react-table';
 import { PageHeader } from '@/components/shared/SectionHeader';
 import { StateChip } from '@/components/shared/StateChip';
 import { FilterBar } from '@/components/shared/FilterBar';
@@ -66,7 +75,7 @@ function SessionDetailSheet({ session, onClose }: { session: Session | null; onC
         <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Status Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <StateChip state={session.status} size="md" />
+            <StateChip state={SESSION_STATUS_MAP[session.status] ?? 'unknown'} label={session.status} size="md" />
             <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--tt-text-muted)' }}>
               {new Date(session.timestamp).toLocaleString()}
             </span>
@@ -156,13 +165,70 @@ function SessionDetailSheet({ session, onClose }: { session: Session | null; onC
   );
 }
 
+const columnHelper = createColumnHelper<Session>();
+
+const SESSION_COLUMNS = [
+  columnHelper.accessor('id', {
+    header: 'ID',
+    cell: info => <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'var(--tt-text-muted)' }}>{info.getValue()}</span>,
+  }),
+  columnHelper.accessor('timestamp', {
+    header: 'Time',
+    cell: info => <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'var(--tt-text-muted)', whiteSpace: 'nowrap' }}>{new Date(info.getValue()).toLocaleTimeString()}</span>,
+  }),
+  columnHelper.accessor('provider', {
+    header: 'Provider',
+    cell: info => <span style={{ fontSize: 11, color: 'var(--tt-text-secondary)' }}>{info.getValue()}</span>,
+  }),
+  columnHelper.accessor('model', {
+    header: 'Model',
+    cell: info => <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--tt-text-muted)', whiteSpace: 'nowrap' }}>{info.getValue()}</span>,
+  }),
+  columnHelper.accessor('tokens', {
+    header: 'Tokens',
+    cell: info => <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11 }}>{info.getValue().toLocaleString()}</span>,
+    meta: { align: 'right' as const },
+  }),
+  columnHelper.accessor('cost', {
+    header: 'Cost',
+    cell: info => <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11 }}>${info.getValue().toFixed(3)}</span>,
+    meta: { align: 'right' as const },
+  }),
+  columnHelper.accessor('duration', {
+    header: 'Duration',
+    cell: info => <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11 }}>{(info.getValue() / 1000).toFixed(1)}s</span>,
+    meta: { align: 'right' as const },
+  }),
+  columnHelper.accessor('status', {
+    header: 'Status',
+    cell: info => <StateChip state={SESSION_STATUS_MAP[info.getValue()] ?? 'unknown'} label={info.getValue()} />,
+  }),
+  columnHelper.accessor('successScore', {
+    header: 'Score',
+    cell: info => {
+      const v = info.getValue();
+      return (
+        <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: v >= 0.9 ? 'var(--tt-accent)' : v >= 0.6 ? 'var(--tt-warning)' : 'var(--tt-critical-text)' }}>
+          {(v * 100).toFixed(0)}%
+        </span>
+      );
+    },
+    meta: { align: 'right' as const },
+  }),
+  columnHelper.accessor('contextHealth', {
+    header: 'Context',
+    cell: info => <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: CONTEXT_COLORS[info.getValue()] }}>{info.getValue()}</span>,
+  }),
+  columnHelper.accessor('surfaceTruth', {
+    header: 'Truth',
+    cell: info => <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: TRUTH_COLORS[info.getValue()] }}>{info.getValue()}</span>,
+  }),
+];
+
 export function SessionsPage() {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
-  const [search, setSearch] = useState('');
-
-  const filtered = mockSessions.filter(s =>
-    !search || [s.id, s.provider, s.model, s.status].some(v => v.toLowerCase().includes(search.toLowerCase()))
-  );
+  const [globalFilter, setGlobalFilter] = useState('');
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'timestamp', desc: true }]);
 
   const successCount = mockSessions.filter(s => s.status === 'success').length;
   const warningCount = mockSessions.filter(s => s.status === 'warning').length;
@@ -174,6 +240,19 @@ export function SessionsPage() {
   const avgScore = mockSessions.reduce((s, sess) => s + sess.successScore, 0) / mockSessions.length;
   const avgCost = mockSessions.reduce((s, sess) => s + sess.cost, 0) / mockSessions.length;
   const avgDuration = mockSessions.reduce((s, sess) => s + sess.duration, 0) / mockSessions.length;
+
+  const columns = useMemo(() => SESSION_COLUMNS, []);
+
+  const table = useReactTable({
+    data: mockSessions,
+    columns,
+    state: { sorting, globalFilter },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+  });
 
   return (
     <div>
@@ -236,8 +315,8 @@ export function SessionsPage() {
           <input
             type="search"
             placeholder="Search sessions by ID, provider, model, status…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
+            value={globalFilter}
+            onChange={e => setGlobalFilter(e.target.value)}
             data-testid="session-search"
             style={{
               width: '100%',
@@ -253,50 +332,56 @@ export function SessionsPage() {
           />
         </div>
 
-        {/* Sessions Table */}
+        {/* Sessions Table — powered by @tanstack/react-table */}
         <div className="tt-panel" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr>
-                {['ID', 'Time', 'Provider', 'Model', 'Tokens', 'Cost', 'Duration', 'Status', 'Score', 'Context', 'Truth'].map(h => (
-                  <th key={h} style={thStyle}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(s => (
-                <tr
-                  key={s.id}
-                  onClick={() => setSelectedSession(s)}
-                  style={{ cursor: 'pointer', transition: 'background 0.1s' }}
-                  data-testid={`session-table-row-${s.id}`}
-                >
-                  <td style={tdStyle}><span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'var(--tt-text-muted)' }}>{s.id}</span></td>
-                  <td style={tdStyle}><span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'var(--tt-text-muted)', whiteSpace: 'nowrap' }}>{new Date(s.timestamp).toLocaleTimeString()}</span></td>
-                  <td style={tdStyle}><span style={{ fontSize: 11, color: 'var(--tt-text-secondary)' }}>{s.provider}</span></td>
-                  <td style={tdStyle}><span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--tt-text-muted)', whiteSpace: 'nowrap' }}>{s.model}</span></td>
-                  <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'JetBrains Mono', fontSize: 11 }}>{s.tokens.toLocaleString()}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'JetBrains Mono', fontSize: 11 }}>${s.cost.toFixed(3)}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'JetBrains Mono', fontSize: 11 }}>{(s.duration / 1000).toFixed(1)}s</td>
-                  <td style={tdStyle}><StateChip state={SESSION_STATUS_MAP[s.status] ?? 'unknown'} label={s.status} /></td>
-                  <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'JetBrains Mono', fontSize: 11 }}>
-                    <span style={{ color: s.successScore >= 0.9 ? 'var(--tt-accent)' : s.successScore >= 0.6 ? 'var(--tt-warning)' : 'var(--tt-critical-text)' }}>
-                      {(s.successScore * 100).toFixed(0)}%
-                    </span>
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: CONTEXT_COLORS[s.contextHealth] }}>
-                      {s.contextHealth}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: TRUTH_COLORS[s.surfaceTruth] }}>
-                      {s.surfaceTruth}
-                    </span>
-                  </td>
+              {table.getHeaderGroups().map(hg => (
+                <tr key={hg.id}>
+                  {hg.headers.map(header => {
+                    const canSort = header.column.getCanSort();
+                    const sorted = header.column.getIsSorted();
+                    return (
+                      <th
+                        key={header.id}
+                        onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                        style={{
+                          ...thStyle,
+                          cursor: canSort ? 'pointer' : 'default',
+                          userSelect: 'none',
+                        }}
+                        title={canSort ? 'Click to sort' : undefined}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {sorted === 'asc' ? ' ↑' : sorted === 'desc' ? ' ↓' : canSort ? ' ·' : ''}
+                      </th>
+                    );
+                  })}
                 </tr>
               ))}
-              {filtered.length === 0 && (
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.map(row => (
+                <tr
+                  key={row.id}
+                  onClick={() => setSelectedSession(row.original)}
+                  style={{ cursor: 'pointer', transition: 'background 0.1s' }}
+                  data-testid={`session-table-row-${row.original.id}`}
+                >
+                  {row.getVisibleCells().map(cell => {
+                    const align = (cell.column.columnDef.meta as { align?: 'right' } | undefined)?.align;
+                    return (
+                      <td
+                        key={cell.id}
+                        style={{ ...tdStyle, textAlign: align ?? 'left' }}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+              {table.getRowModel().rows.length === 0 && (
                 <tr>
                   <td colSpan={11} style={{ ...tdStyle, textAlign: 'center', color: 'var(--tt-text-muted)', padding: 32 }}>
                     No sessions match the current search or filters.
