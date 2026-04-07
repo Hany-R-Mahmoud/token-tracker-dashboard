@@ -11,3 +11,9 @@ id = "PUngwyuEtQ_J7QFIScEsU"
 uri = "file://token-tracker-status-report.md"
 type = "text"
 title = "Token Tracker — Full Status Report"
+
+[[outputs]]
+id = "0UKFH5MwhFBlvQvbyTSgm"
+uri = "file://token-tracker-codex-handover.md"
+type = "text"
+title = "Token Tracker — Codex Handover (All 10 Questions)"
