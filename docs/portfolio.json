@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "slug": "token-tracker-dashboard",
+  "title": {
+    "en": "Token Tracker Dashboard",
+    "ar": "Token Tracker Dashboard"
+  },
+  "summary": {
+    "en": "<div align=\"center\"> <img src=\"./public/logo.png\" alt=\"Token Tracker Dashboard logo\" width=\"96\" /> <h1>Token Tracker Dashboard</h1> <p><strong>The web command center for monitoring AI token usage, provider health, session quality, and team activity.</strong></p> <p> <img alt=\"Rea",
+    "ar": "<div align=\"center\"> <img src=\"./public/logo.png\" alt=\"Token Tracker Dashboard logo\" width=\"96\" /> <h1>Token Tracker Dashboard</h1> <p><strong>The web command center for monitoring AI token usage, provider health, session quality, and team activity.</strong></p> <p> <img alt=\"Rea"
+  },
+  "status": "in-progress",
+  "portfolio": true,
+  "category": "Web",
+  "tech_stack": [
+    "Next.js",
+    "Vite",
+    "React",
+    "TypeScript",
+    "Tailwind",
+    "Vitest"
+  ],
+  "features": [
+    {
+      "en": "Spend, token, latency, and throughput visibility",
+      "ar": "Spend, token, latency, and throughput visibility"
+    },
+    {
+      "en": "Provider integrity and health-state monitoring",
+      "ar": "Provider integrity and health-state monitoring"
+    },
+    {
+      "en": "Session investigation and triage workflows",
+      "ar": "Session investigation and triage workflows"
+    },
+    {
+      "en": "Team leaderboard and usage patterns",
+      "ar": "Team leaderboard and usage patterns"
+    },
+    {
+      "en": "Analytics views for trends, composition, and operational cadence",
+      "ar": "Analytics views for trends, composition, and operational cadence"
+    },
+    {
+      "en": "Settings and admin surfaces prepared for deeper backend wiring",
+      "ar": "Settings and admin surfaces prepared for deeper backend wiring"
+    }
+  ],
+  "progress": {
+    "en": "Classified as in progress by Apex Yard; implementation and scope are still evolving.",
+    "ar": "Classified as in progress by Apex Yard; implementation and scope are still evolving."
+  },
+  "issues": [
+    {
+      "en": "No conventional test directory was detected.",
+      "ar": "No conventional test directory was detected."
+    }
+  ],
+  "suggestions": [
+    {
+      "en": "Record the next milestone and known blockers in this portfolio document.",
+      "ar": "Record the next milestone and known blockers in this portfolio document."
+    }
+  ],
+  "commands": {
+    "install": "pnpm install",
+    "dev": "pnpm run dev",
+    "test": "pnpm run test",
+    "build": "pnpm run build"
+  },
+  "repository": {
+    "branch": "main",
+    "sync": "github",
+    "github": "https://github.com/Hany-R-Mahmoud/token-tracker-dashboard"
+  },
+  "source": {
+    "workspace": "workspace/token-tracker-dashboard",
+    "last_reviewed": "2026-07-29"
+  }
+}
