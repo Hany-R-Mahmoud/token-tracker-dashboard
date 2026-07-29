@@ -103,3 +103,11 @@ This repository is intended to deploy as a standalone Vite app on Vercel.
 ## Status
 
 This repo is the canonical web dashboard repository after the refactor and cleanup.
+
+## Apex Yard portfolio snapshot
+
+- Status: in-progress
+- Category: Web
+- Source of truth: [docs/portfolio.json](docs/portfolio.json)
+
+This section is maintained from repository evidence and should be updated with docs/portfolio.json when the project changes.
